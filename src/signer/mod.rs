@@ -4,6 +4,7 @@ use alloy::{
     signers::{Signer, local::PrivateKeySigner},
     sol_types::Eip712Domain,
 };
+use qrcode::{QrCode, render::unicode};
 
 pub trait HyperLiquidSigningHash {
     fn hyperliquid_signing_hash(&self, domain: &Eip712Domain) -> FixedBytes<32>;
@@ -17,6 +18,19 @@ impl AgentWallet {
         Self {
             wallet_key: pk.parse().unwrap(),
         }
+    }
+    pub fn print_wallet(&self) {
+        let code = QrCode::new(format!(
+            "https://blockscan.com/address/{}",
+            self.wallet_key.address()
+        ))
+        .unwrap();
+        let image = code
+            .render::<unicode::Dense1x2>()
+            .dark_color(unicode::Dense1x2::Light)
+            .light_color(unicode::Dense1x2::Dark)
+            .build();
+        println!("{image}");
     }
 }
 

@@ -24,4 +24,5 @@ target/
 # Added by cargo
 
 /target
-dump.txt
+*.txt
+.env
