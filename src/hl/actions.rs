@@ -50,6 +50,7 @@ pub struct TransferRequest {
 pub enum Actions {
     Order(BulkOrder),
     UsdClassTransfer(TransferRequest),
+    Cancel(BulkCancel),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,4 +58,19 @@ pub enum Actions {
 pub struct BulkOrder {
     pub orders: Vec<OrderRequest>,
     pub grouping: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkCancel {
+    pub cancels: Vec<CancelOrder>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelOrder {
+    #[serde(rename = "a", alias = "asset")]
+    pub asset: u32,
+    #[serde(rename = "o", alias = "oid")]
+    pub oid: i64,
 }

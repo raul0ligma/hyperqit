@@ -223,7 +223,6 @@ fn process_spot_markets(
         })
         .collect();
 
-    // Process each token
     for token in spot_info.0.tokens {
         if let Some(universe_entry) = universe_map.get(&token.index) {
             if let Some(market_data) = market_data_map.get(&universe_entry.name) {
