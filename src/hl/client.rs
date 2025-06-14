@@ -3,6 +3,7 @@ use std::time::SystemTime;
 
 use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::Address;
+use hyperliquid_rust_sdk::UserFundingResponse;
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
@@ -10,7 +11,9 @@ use crate::hl::exchange::{
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
 use crate::hl::message::SignedMessage;
-use crate::hl::user_info::{GetUserInfoReq, UserPerpPosition, UserSpotPosition};
+use crate::hl::user_info::{
+    FundingHistory, GetUserFundingHistoryReq, GetUserInfoReq, UserPerpPosition, UserSpotPosition,
+};
 use crate::hl::{Actions, TransferRequest};
 use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest};
 
@@ -129,6 +132,35 @@ where
         }
     }
 
+    pub async fn get_user_funding_history(&self, since: u128) -> Result<FundingHistory> {
+        let end_time = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_millis() as u128;
+
+        let req = GetUserFundingHistoryReq {
+            request_type: "userFunding".into(),
+            user: self.user.to_string(),
+            end_time,
+            start_time: end_time - since,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+        }
+        let out: FundingHistory = serde_json::from_str(body.as_str())?;
+        Ok(out)
+    }
+
     pub async fn update_leverage(&self, a: u32, is_cross: bool, leverage: u32) -> Result<()> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
@@ -136,7 +168,7 @@ where
 
         let action: Actions = Actions::UpdateLeverage(crate::UpdateLeverage {
             asset: a,
-            is_cross: false,
+            is_cross: is_cross,
             leverage: leverage,
         });
 

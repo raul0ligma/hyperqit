@@ -30,63 +30,63 @@ async fn main() {
     //     }
     // }
 
-    let spotInfo = executor.get_spot_info().await.unwrap();
-    let perpInfo = executor.get_perp_info().await.unwrap();
-    let out = create_unified_market_info(perpInfo, spotInfo);
-    let hype_data = find_market_by_name(&out, "HYPE");
-    println!("{:?}", hype_data);
-    let perp_data = hype_data.unwrap().perp.clone().unwrap();
-    let funding_rate: f64 = perp_data.funding.parse().unwrap();
-    let size_in_usd = 50.69f64;
-    if funding_rate <= 0.0 {
-        println!("can't run strategy as funding rate is negative");
-        return;
-    }
+    // let spotInfo = executor.get_spot_info().await.unwrap();
+    // let perpInfo = executor.get_perp_info().await.unwrap();
+    // let out = create_unified_market_info(perpInfo, spotInfo);
+    // let hype_data = find_market_by_name(&out, "HYPE");
+    // println!("{:?}", hype_data);
+    // let perp_data = hype_data.unwrap().perp.clone().unwrap();
+    // let funding_rate: f64 = perp_data.funding.parse().unwrap();
+    // let size_in_usd = 50.69f64;
+    // if funding_rate <= 0.0 {
+    //     println!("can't run strategy as funding rate is negative");
+    //     return;
+    // }
 
     // execute a buy order on spot
 
-    let spot_data = hype_data.unwrap().spot.clone().unwrap();
-    println!("spot data {:?}", spot_data.clone());
+    // let spot_data = hype_data.unwrap().spot.clone().unwrap();
+    // println!("spot data {:?}", spot_data.clone());
 
-    let spot_mid: f64 = spot_data.mid_px.unwrap().parse().unwrap();
-    let spot_decimals = spot_data.sz_decimals as i32;
+    // let spot_mid: f64 = spot_data.mid_px.unwrap().parse().unwrap();
+    // let spot_decimals = spot_data.sz_decimals as i32;
 
-    executor
-        .create_position_with_size_in_usd(
-            spot_data.asset_id,
-            false,
-            true,
-            spot_mid,
-            size_in_usd,
-            false,
-            0.5,
-            spot_decimals,
-        )
-        .await
-        .unwrap();
+    // executor
+    //     .create_position_with_size_in_usd(
+    //         spot_data.asset_id,
+    //         false,
+    //         true,
+    //         spot_mid,
+    //         size_in_usd,
+    //         false,
+    //         0.5,
+    //         spot_decimals,
+    //     )
+    //     .await
+    //     .unwrap();
 
-    let mid: f64 = perp_data.mid_px.unwrap().parse().unwrap();
-    let decimals = perp_data.sz_decimals as i32;
+    // let mid: f64 = perp_data.mid_px.unwrap().parse().unwrap();
+    // let decimals = perp_data.sz_decimals as i32;
 
-    // set leverage to 1x
-    executor
-        .update_leverage(perp_data.asset_id, true, 1)
-        .await
-        .unwrap();
+    // // set leverage to 1x
+    // executor
+    //     .update_leverage(perp_data.asset_id, true, 1)
+    //     .await
+    //     .unwrap();
 
-    executor
-        .create_position_with_size_in_usd(
-            perp_data.asset_id,
-            true,
-            false,
-            mid,
-            size_in_usd,
-            false,
-            0.5,
-            decimals,
-        )
-        .await
-        .unwrap();
+    // executor
+    //     .create_position_with_size_in_usd(
+    //         perp_data.asset_id,
+    //         true,
+    //         false,
+    //         mid,
+    //         size_in_usd,
+    //         false,
+    //         0.5,
+    //         decimals,
+    //     )
+    //     .await
+    //     .unwrap();
     // let oid: i64 = config.existing_order_id.parse().unwrap();
     // executor.cancel_order(oid, 3).await.unwrap()
     //let outA = executor.get_user_perp_info().await.unwrap();
@@ -109,4 +109,10 @@ async fn main() {
     //     )
     //     .await
     //     .unwrap();
+
+    let history = executor
+        .get_user_funding_history(2 * 60 * 60 * 1000 as u128)
+        .await
+        .unwrap();
+    println!("{:?}", history)
 }

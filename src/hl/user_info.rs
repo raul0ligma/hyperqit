@@ -100,3 +100,33 @@ pub struct GetUserInfoReq {
     pub request_type: String,
     pub user: String,
 }
+
+pub type FundingHistory = Vec<UserTransaction>;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserTransaction {
+    pub delta: Delta,
+    pub hash: String,
+    pub time: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Delta {
+    pub coin: String,
+    pub funding_rate: String,
+    pub szi: String,
+    #[serde(rename = "type")]
+    pub type_field: String,
+    pub usdc: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserFundingHistoryReq {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+    pub start_time: u128,
+    pub end_time: u128,
+}
