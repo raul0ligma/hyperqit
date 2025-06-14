@@ -66,6 +66,24 @@ fn get_formatted_position_with_amount(
 ) -> (String, String) {
     let sz_raw = size_in_usd / current_px;
 
+    get_formatted_position_with_amount_raw(
+        current_px,
+        sz_raw,
+        is_perp,
+        is_buy,
+        sz_decimals,
+        slippage,
+    )
+}
+
+fn get_formatted_position_with_amount_raw(
+    current_px: f64,
+    sz_raw: f64,
+    is_perp: bool,
+    is_buy: bool,
+    sz_decimals: i32,
+    slippage: f64,
+) -> (String, String) {
     let out_px = if is_buy {
         current_px * (1.0 + slippage)
     } else {
@@ -81,7 +99,6 @@ fn get_formatted_position_with_amount(
     let px = format_significant_digits_and_decimals(out_px, decimals);
     (px.to_string(), sz.to_string())
 }
-
 pub trait HlAgentWallet {
     async fn sign_order(
         &self,
@@ -112,7 +129,47 @@ where
         }
     }
 
-    pub async fn open_position(
+    pub async fn update_leverage(&self, a: u32, is_cross: bool, leverage: u32) -> Result<()> {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_millis() as u64;
+
+        let action: Actions = Actions::UpdateLeverage(crate::UpdateLeverage {
+            asset: a,
+            is_cross: false,
+            leverage: leverage,
+        });
+
+        let is_mainnet = self.network == Network::Mainnet;
+        let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
+
+        let signature = self.signer.sign_order(domain, to_sign).await?;
+
+        let payload = ExchangeRequest {
+            action: serde_json::to_value(action)?,
+            signature,
+            nonce: timestamp,
+        };
+        let out = serde_json::to_string(&payload).unwrap();
+        println!("{} body", out);
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        println!("{:?}", out);
+        Ok(())
+    }
+
+    pub async fn create_position_with_size_in_usd(
         &self,
         a: u32,
         is_perp: bool,
@@ -123,10 +180,6 @@ where
         slippage: f64,
         sz_decimals: i32,
     ) -> Result<()> {
-        let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)?
-            .as_millis() as u64;
-
         let (px, sz) = get_formatted_position_with_amount(
             current_px,
             sz,
@@ -135,10 +188,51 @@ where
             sz_decimals,
             slippage,
         );
+
+        self.create_position(a, is_buy, px, sz, reduce_only).await?;
+        Ok(())
+    }
+
+    pub async fn create_position_with_size(
+        &self,
+        a: u32,
+        is_perp: bool,
+        is_buy: bool,
+        current_px: f64,
+        sz: f64,
+        reduce_only: bool,
+        slippage: f64,
+        sz_decimals: i32,
+    ) -> Result<()> {
+        let (px, sz) = get_formatted_position_with_amount_raw(
+            current_px,
+            sz,
+            is_perp,
+            is_buy,
+            sz_decimals,
+            slippage,
+        );
+
+        self.create_position(a, is_buy, px, sz, reduce_only).await?;
+        Ok(())
+    }
+
+    async fn create_position(
+        &self,
+        a: u32,
+        is_buy: bool,
+        px: String,
+        sz: String,
+        reduce_only: bool,
+    ) -> Result<()> {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_millis() as u64;
+
         let action: Actions = Actions::Order(crate::BulkOrder {
             orders: vec![OrderRequest {
                 asset: a,
-                is_buy: true,
+                is_buy: is_buy,
                 limit_px: px,
                 sz: sz,
                 reduce_only,

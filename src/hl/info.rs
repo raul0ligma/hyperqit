@@ -217,9 +217,13 @@ fn process_spot_markets(
         .0
         .universe
         .into_iter()
-        .map(|universe| {
-            let token_index = universe.tokens.first().copied().unwrap_or(-1);
-            (token_index, universe)
+        .filter_map(|universe| {
+            if universe.tokens.len() >= 2 && universe.tokens[1] == 0 {
+                let token_index = universe.tokens[0];
+                Some((token_index, universe))
+            } else {
+                None
+            }
         })
         .collect();
 

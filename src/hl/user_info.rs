@@ -1,3 +1,4 @@
+use crate::errors::{Errors, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -33,6 +34,14 @@ pub struct Position {
     pub return_on_equity: String,
     pub szi: String,
     pub unrealized_pnl: String,
+}
+
+impl Position {
+    pub fn get_close_order_info(&self) -> Result<(bool, f64)> {
+        let parsed_sz: f64 = self.szi.parse()?;
+        let is_long = parsed_sz > 0.0;
+        Ok((!is_long, parsed_sz.abs()))
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

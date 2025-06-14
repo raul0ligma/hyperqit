@@ -51,6 +51,7 @@ pub enum Actions {
     Order(BulkOrder),
     UsdClassTransfer(TransferRequest),
     Cancel(BulkCancel),
+    UpdateLeverage(UpdateLeverage),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -73,4 +74,12 @@ pub struct CancelOrder {
     pub asset: u32,
     #[serde(rename = "o", alias = "oid")]
     pub oid: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateLeverage {
+    pub asset: u32,
+    pub is_cross: bool,
+    pub leverage: u32,
 }

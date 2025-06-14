@@ -2,6 +2,7 @@ use std::ops::Add;
 
 use alloy::primitives::{Address, address};
 use envconfig::Envconfig;
+use ethers::providers::RetryClient;
 use futures::executor;
 use hlmm::*;
 use qrcode::QrCode;
@@ -29,33 +30,83 @@ async fn main() {
     //     }
     // }
 
-    // let outA = executor.get_user_perp_info().await.unwrap();
-    // let outB = executor.get_user_spot_info().await.unwrap();
-    //println!("{:?} {:?}", outA, outB);
     let spotInfo = executor.get_spot_info().await.unwrap();
     let perpInfo = executor.get_perp_info().await.unwrap();
     let out = create_unified_market_info(perpInfo, spotInfo);
-    let hype_data = find_market_by_name(&out, "BTC");
+    let hype_data = find_market_by_name(&out, "HYPE");
     println!("{:?}", hype_data);
-    // let oid: i64 = config.existing_order_id.parse().unwrap();
-    // executor.cancel_order(oid, 3).await.unwrap()
+    let perp_data = hype_data.unwrap().perp.clone().unwrap();
+    let funding_rate: f64 = perp_data.funding.parse().unwrap();
+    let size_in_usd = 50.69f64;
+    if funding_rate <= 0.0 {
+        println!("can't run strategy as funding rate is negative");
+        return;
+    }
 
-    let data = hype_data.unwrap().perp.clone().unwrap();
-    let mid: f64 = data.mid_px.unwrap().parse().unwrap();
-    let decimals = data.sz_decimals as i32;
+    // execute a buy order on spot
 
-    let size_in_usd = 505.65f64;
+    let spot_data = hype_data.unwrap().spot.clone().unwrap();
+    println!("spot data {:?}", spot_data.clone());
+
+    let spot_mid: f64 = spot_data.mid_px.unwrap().parse().unwrap();
+    let spot_decimals = spot_data.sz_decimals as i32;
+
     executor
-        .open_position(
-            data.asset_id,
+        .create_position_with_size_in_usd(
+            spot_data.asset_id,
+            false,
             true,
+            spot_mid,
+            size_in_usd,
+            false,
+            0.5,
+            spot_decimals,
+        )
+        .await
+        .unwrap();
+
+    let mid: f64 = perp_data.mid_px.unwrap().parse().unwrap();
+    let decimals = perp_data.sz_decimals as i32;
+
+    // set leverage to 1x
+    executor
+        .update_leverage(perp_data.asset_id, true, 1)
+        .await
+        .unwrap();
+
+    executor
+        .create_position_with_size_in_usd(
+            perp_data.asset_id,
             true,
+            false,
             mid,
             size_in_usd,
             false,
-            0.001,
+            0.5,
             decimals,
         )
         .await
-        .unwrap()
+        .unwrap();
+    // let oid: i64 = config.existing_order_id.parse().unwrap();
+    // executor.cancel_order(oid, 3).await.unwrap()
+    //let outA = executor.get_user_perp_info().await.unwrap();
+    // let outB = executor.get_user_spot_info().await.unwrap();
+    // println!("{:?} ", outA);
+    // let pos = outA.asset_positions.get(0).unwrap();
+    // let (is_buy, close_sz) = pos.position.get_close_order_info().unwrap();
+
+    // println!("closing pos  {} {}", is_buy, close_sz);
+    // executor
+    //     .create_position_with_size(
+    //         data.asset_id,
+    //         true,
+    //         is_buy,
+    //         mid,
+    //         close_sz + 5.0,
+    //         true,
+    //         0.001,
+    //         decimals,
+    //     )
+    //     .await
+    //     .unwrap();
 }
