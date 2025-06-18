@@ -7,4 +7,4 @@ mod strategy;
 pub use config::*;
 pub use hl::*;
 pub use signer::*;
-pub use strategy::Strategy;
+pub use strategy::*;

@@ -92,9 +92,9 @@ async fn main() {
     //     .unwrap();
     // let oid: i64 = config.existing_order_id.parse().unwrap();
     // executor.cancel_order(oid, 3).await.unwrap()
-    //let outA = executor.get_user_perp_info().await.unwrap();
+    // let outA = executor.get_user_perp_info().await.unwrap();
     // let outB = executor.get_user_spot_info().await.unwrap();
-    // println!("{:?} ", outA);
+    // println!("{:?} {:?}", outA, outB);
     // let pos = outA.asset_positions.get(0).unwrap();
     // let (is_buy, close_sz) = pos.position.get_close_order_info().unwrap();
 
@@ -119,13 +119,27 @@ async fn main() {
     //     .unwrap();
     // println!("{:?}", history)
 
-    let strat = Strategy::new(1, Duration::from_secs(5), executor);
+    let strat = Strategy::new(
+        1,
+        Duration::from_secs(5),
+        Asset::WithPerpAndSpot("ETH".to_owned(), "UETH".to_owned()),
+        0.1,
+        5f64,
+        executor,
+    );
 
-    let cancellation = CancellationToken::new();
-    let cloned_cancel = cancellation.clone();
-    let runner_handle = tokio::spawn(async move { strat.run(cloned_cancel).await.unwrap() });
-    sleep(Duration::from_secs(15));
-    cancellation.cancel();
-    tokio::join!(runner_handle).0.unwrap();
-    println!("ending");
+    let out = strat.state().await.unwrap();
+    let out_json = serde_json::to_string(&out).unwrap();
+    println!("{}", out_json);
+
+    // strat.exit().await.unwrap()
+    strat.enter(Amount::Usd("50.44".to_owned())).await.unwrap();
+
+    // let cancellation = CancellationToken::new();
+    // let cloned_cancel = cancellation.clone();
+    // let runner_handle = tokio::spawn(async move { strat.run(cloned_cancel).await.unwrap() });
+    // sleep(Duration::from_secs(15));
+    // cancellation.cancel();
+    // tokio::join!(runner_handle).0.unwrap();
+    // println!("ending");
 }

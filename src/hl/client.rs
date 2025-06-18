@@ -153,7 +153,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
         let out: FundingHistory = serde_json::from_str(body.as_str())?;
         Ok(out)
@@ -191,7 +191,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
@@ -293,7 +293,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
@@ -339,7 +339,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
@@ -362,7 +362,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: PerpetualsInfo = serde_json::from_str(body.as_str())?;
@@ -385,7 +385,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: SpotResponse = serde_json::from_str(body.as_str())?;
@@ -409,7 +409,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         println!("{}", body);
@@ -434,7 +434,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: UserPerpPosition = serde_json::from_str(body.as_str())?;
@@ -471,7 +471,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            return Err(Box::new(Errors::HyperLiquidApiError(status_code, body)));
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;

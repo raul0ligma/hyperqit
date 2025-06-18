@@ -9,3 +9,4 @@ pub use actions::*;
 pub use client::{HlAgentWallet, HyperliquidClient, Network};
 pub use info::*;
 pub use message::*;
+pub use user_info::*;

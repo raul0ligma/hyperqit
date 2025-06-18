@@ -258,13 +258,13 @@ fn process_spot_markets(
                     })
                     .spot = Some(spot_market);
             } else {
-                warn!(
+                debug!(
                     "No market data found for universe entry: {}",
                     universe_entry.name
                 );
             }
         } else {
-            warn!(
+            debug!(
                 "No matching universe entry found for token: {} (index: {})",
                 token.name, token.index
             );

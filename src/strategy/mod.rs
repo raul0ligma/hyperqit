@@ -1,47 +1,44 @@
-use std::time::Duration;
+mod strategy;
+use serde::{Deserialize, Serialize};
 
-use log::info;
-use tokio::time;
-use tokio_util::sync::CancellationToken;
-
-use crate::{HlAgentWallet, HyperliquidClient, errors::Result};
-pub struct Strategy<S>
-where
-    S: HlAgentWallet,
-{
-    leverage: u32,
-    tick_interval: Duration,
-    executor: HyperliquidClient<S>,
+pub enum Asset {
+    CommonAsset(String),
+    WithPerpAndSpot(String, String),
 }
 
-impl<S> Strategy<S>
-where
-    S: HlAgentWallet,
-{
-    pub fn new(leverage: u32, tick_interval: Duration, executor: HyperliquidClient<S>) -> Self {
-        Strategy {
-            leverage: leverage,
-            tick_interval: tick_interval,
-            executor: executor,
-        }
-    }
-
-    pub async fn run(&self, cancellation: CancellationToken) -> Result<()> {
-        info!("starting strategy runner");
-        let mut ticker = time::interval(self.tick_interval);
-
-        loop {
-            tokio::select! {
-                tick_out = ticker.tick() =>{
-                        info!("running strategy {:?}", tick_out.elapsed());
-                }
-                _ = cancellation.cancelled() =>{
-                        println!("cancelled");
-                        break;
-                }
-            }
-        }
-
-        Ok(())
-    }
+pub enum Amount {
+    Usd(String),
+    Raw(String),
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
+pub enum StrategyStatus {
+    Active,
+    InActive,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Position {
+    perp_amount: f64,
+    perp_mid_px: f64,
+    perp_pos_usd: f64,
+    liq_px: f64,
+    spot_amount: f64,
+    spot_mid_px: f64,
+    spot_pos_usd: f64,
+    perp_funding_rate: f64,
+    dn_diff: f64,
+    funding_earning_nh: f64,
+    at: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyState {
+    pub status: StrategyStatus,
+    pub position: Option<Position>,
+}
+pub use strategy::*;
