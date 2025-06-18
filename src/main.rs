@@ -15,12 +15,12 @@ use tokio_util::sync::CancellationToken;
 async fn main() {
     env_logger::init();
     let config = hlmm::Config::init_from_env().unwrap();
-    let signer = hlmm::AgentWallet::signer(config.private_key.into());
+    let signer = Signers::Local(hlmm::LocalWallet::signer(config.private_key.into()));
     //signer.print_wallet();
 
     let user_address: Address = config.user_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
+    let executor = crate::HyperliquidClient::new(Network::Mainnet, signer, user_address);
 
     //executor.get_perp_info().await.unwrap();
     // executor.transfer_usd_to_spot(10).await.unwrap();
@@ -122,10 +122,10 @@ async fn main() {
     let strat = Strategy::new(
         1,
         Duration::from_secs(5),
-        Asset::WithPerpAndSpot("ETH".to_owned(), "UETH".to_owned()),
-        0.1,
-        70.0,
-        5f64,
+        Asset::CommonAsset("HYPE".to_owned()),
+        0.005,
+        0.1f64,
+        0.7,
         executor,
     );
 
@@ -134,7 +134,7 @@ async fn main() {
     println!("{}", out_json);
 
     // strat.exit().await.unwrap()
-    // strat.enter(Amount::Usd("50.44".to_owned())).await.unwrap();
+    // strat.enter(Amount::Usd("10.01".to_owned())).await.unwrap();
 
     let cancellation = CancellationToken::new();
     let cloned_cancel = cancellation.clone();
