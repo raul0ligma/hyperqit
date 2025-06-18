@@ -1,4 +1,4 @@
-use crate::errors::{Errors, Result};
+use crate::errors::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

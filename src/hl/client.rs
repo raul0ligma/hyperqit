@@ -1,9 +1,7 @@
-use std::slice::SliceIndex;
 use std::time::SystemTime;
 
 use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::Address;
-use hyperliquid_rust_sdk::UserFundingResponse;
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
@@ -485,7 +483,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::*;
 
     #[test]
     fn test_fmt() -> Result<()> {

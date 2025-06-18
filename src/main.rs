@@ -1,4 +1,6 @@
 use std::ops::Add;
+use std::thread::sleep;
+use std::time::Duration;
 
 use alloy::primitives::{Address, address};
 use envconfig::Envconfig;
@@ -7,6 +9,7 @@ use futures::executor;
 use hlmm::*;
 use qrcode::QrCode;
 use qrcode::render::unicode;
+use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() {
@@ -110,9 +113,19 @@ async fn main() {
     //     .await
     //     .unwrap();
 
-    let history = executor
-        .get_user_funding_history(2 * 60 * 60 * 1000 as u128)
-        .await
-        .unwrap();
-    println!("{:?}", history)
+    // let history = executor
+    //     .get_user_funding_history(2 * 60 * 60 * 1000 as u128)
+    //     .await
+    //     .unwrap();
+    // println!("{:?}", history)
+
+    let strat = Strategy::new(1, Duration::from_secs(5), executor);
+
+    let cancellation = CancellationToken::new();
+    let cloned_cancel = cancellation.clone();
+    let runner_handle = tokio::spawn(async move { strat.run(cloned_cancel).await.unwrap() });
+    sleep(Duration::from_secs(15));
+    cancellation.cancel();
+    tokio::join!(runner_handle).0.unwrap();
+    println!("ending");
 }
