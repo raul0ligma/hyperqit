@@ -1,6 +1,6 @@
 use crate::{
-    Amount, AssetPosition, Balance, HlAgentWallet, HyperliquidClient, PerpMarketInfo,
-    SpotMarketInfo, StrategyStatus, create_unified_market_info,
+    Amount, AssetPosition, Balance, HyperliquidClient, PerpMarketInfo, SpotMarketInfo,
+    StrategyStatus, create_unified_market_info,
     errors::{self, Result},
     find_market_by_name,
     strategy::{
@@ -15,23 +15,17 @@ use std::result::Result::Ok;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 
-pub struct Strategy<S>
-where
-    S: HlAgentWallet,
-{
+pub struct Strategy {
     asset: Asset,
     slippage: f64,
     liq_threshold: f64,
     leverage: u32,
     dust_threshold: f64,
     tick_interval: Duration,
-    executor: HyperliquidClient<S>,
+    executor: HyperliquidClient,
 }
 
-impl<S> Strategy<S>
-where
-    S: HlAgentWallet,
-{
+impl Strategy {
     pub fn new(
         leverage: u32,
         tick_interval: Duration,
@@ -39,7 +33,7 @@ where
         slippage: f64,
         dust_threshold: f64,
         liq_threshold: f64,
-        executor: HyperliquidClient<S>,
+        executor: HyperliquidClient,
     ) -> Self {
         Strategy {
             asset,

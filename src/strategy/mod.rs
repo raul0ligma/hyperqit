@@ -1,11 +1,17 @@
 mod strategy;
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "assetType", content = "asset")]
 pub enum Asset {
     CommonAsset(String),
     WithPerpAndSpot(String, String),
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "fmt", content = "amt")]
 pub enum Amount {
     Usd(String),
     Raw(String),

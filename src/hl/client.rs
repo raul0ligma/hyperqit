@@ -14,7 +14,7 @@ use crate::hl::user_info::{
     FundingHistory, GetUserFundingHistoryReq, GetUserInfoReq, UserPerpPosition, UserSpotPosition,
 };
 use crate::hl::{Actions, TransferRequest};
-use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest};
+use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, Signers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Network {
@@ -110,25 +110,19 @@ pub trait HlAgentWallet {
     async fn sign_order(
         &self,
         domain: Eip712Domain,
-        to_sign: impl HyperLiquidSigningHash,
+        to_sign: &dyn HyperLiquidSigningHash,
     ) -> Result<SignedMessage>;
 }
 
-pub struct HyperliquidClient<S>
-where
-    S: HlAgentWallet,
-{
+pub struct HyperliquidClient {
     client: reqwest::Client,
-    signer: S,
+    signer: Signers,
     network: Network,
     user: Address,
 }
 
-impl<S> HyperliquidClient<S>
-where
-    S: HlAgentWallet,
-{
-    pub fn new(network: Network, signer: S, user: Address) -> Self {
+impl HyperliquidClient {
+    pub fn new(network: Network, signer: Signers, user: Address) -> Self {
         info!("creating hyperliquid client for {} on {:?}", user, network);
         HyperliquidClient {
             client: reqwest::Client::new(),
@@ -194,7 +188,7 @@ where
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
 
-        let signature = self.signer.sign_order(domain, to_sign).await?;
+        let signature = self.signer.sign_order(domain, &to_sign).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -321,7 +315,7 @@ where
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
 
-        let signature = self.signer.sign_order(domain, to_sign).await?;
+        let signature = self.signer.sign_order(domain, &to_sign).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -380,7 +374,7 @@ where
         let (to_sign, domain) = generate_transfer_params(&transfer_req)?;
         debug!("transfer domain: {:?}", domain);
 
-        let signature = self.signer.sign_order(domain, to_sign).await?;
+        let signature = self.signer.sign_order(domain, &to_sign).await?;
 
         let payload = ExchangeRequest {
             nonce: timestamp,
@@ -536,7 +530,7 @@ where
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
 
-        let signature = self.signer.sign_order(domain, to_sign).await?;
+        let signature = self.signer.sign_order(domain, &to_sign).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
