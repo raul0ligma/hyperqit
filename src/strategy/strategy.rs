@@ -8,9 +8,10 @@ use crate::{
         Position, StrategyState,
     },
 };
+use std::time::{Duration, SystemTime};
+
 use log::{info, warn};
 use std::result::Result::Ok;
-use std::time::{Duration, SystemTime};
 use tokio::time;
 use tokio_util::sync::CancellationToken;
 
@@ -85,12 +86,18 @@ where
         let user_state = self.state().await?;
 
         if user_state.status == StrategyStatus::InActive {
+            info!("check: strategy inactive, no action needed");
             return Ok(false);
         }
 
         let current_funding_rate: f64 = perp_info.funding.parse()?;
+        info!("check: funding rate {:.4}%", current_funding_rate * 100.0);
+
         if current_funding_rate < 0.0 {
-            info!("funding negative, exiting");
+            info!(
+                "decision: funding negative ({:.4}%), exiting position",
+                current_funding_rate * 100.0
+            );
             return Ok(true);
         }
 
@@ -100,13 +107,22 @@ where
             "perp_position".to_owned(),
         ))?;
 
-        if user_pos.liq_px <= 0.0 {
-            return Ok(false);
-        }
+        let price_ratio = current_mark_px / user_pos.liq_px;
+        info!(
+            "check: price at {:.1}% of liq price (threshold {:.1}%)",
+            price_ratio * 100.0,
+            self.liq_threshold * 100.0
+        );
 
-        let should_exit = (1.0 - (current_mark_px / user_pos.liq_px)) <= self.liq_threshold;
+        let should_exit = price_ratio >= self.liq_threshold;
         if should_exit {
-            info!("liq risk high, exiting");
+            info!(
+                "decision: price {:.1}% of liq price exceeds threshold {:.1}%, exiting position",
+                price_ratio * 100.0,
+                self.liq_threshold * 100.0
+            );
+        } else {
+            info!("decision: conditions good, maintaining position");
         }
 
         Ok(should_exit)
@@ -125,7 +141,7 @@ where
                         Ok(should_exit) => {
                             if should_exit {
                                 match self.exit().await {
-                                    std::result::Result::Ok(_) => info!("exited position"),
+                                    Ok(_) => info!("exited position"),
                                     Err(e) => warn!("exit failed: {}", e),
                                 }
                             }
@@ -218,7 +234,7 @@ where
             || current_perp_pos.is_none()
             || current_spot_pos
                 .clone()
-                .is_some_and(|spot| spot.total.parse::<f64>().unwrap_or(0f64) > self.dust_threshold)
+                .is_some_and(|spot| spot.total.parse::<f64>().unwrap_or(0f64) < self.dust_threshold)
         {
             return Ok(StrategyState {
                 status: super::StrategyStatus::InActive,
@@ -297,7 +313,7 @@ where
             || current_perp_pos.is_none()
             || current_spot_pos
                 .clone()
-                .is_some_and(|spot| spot.total.parse::<f64>().unwrap_or(0f64) > self.dust_threshold)
+                .is_some_and(|spot| spot.total.parse::<f64>().unwrap_or(0f64) < self.dust_threshold)
         {
             return Err(errors::CmpError {
                 expected: StrategyStatus::Active,
