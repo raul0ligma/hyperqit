@@ -490,7 +490,7 @@ where
 
         debug!("user spot response: {}", body);
         let out: UserSpotPosition = serde_json::from_str(body.as_str())?;
-        info!("retrieved spot positions for user {}", self.user);
+        debug!("retrieved spot positions for user {}", self.user);
         Ok(out)
     }
 
@@ -518,7 +518,7 @@ where
         }
 
         let out: UserPerpPosition = serde_json::from_str(body.as_str())?;
-        info!("retrieved perp positions for user {}", self.user);
+        debug!("retrieved perp positions for user {}", self.user);
         Ok(out)
     }
 
