@@ -124,6 +124,7 @@ async fn main() {
         Duration::from_secs(5),
         Asset::WithPerpAndSpot("ETH".to_owned(), "UETH".to_owned()),
         0.1,
+        70.0,
         5f64,
         executor,
     );
@@ -133,13 +134,13 @@ async fn main() {
     println!("{}", out_json);
 
     // strat.exit().await.unwrap()
-    strat.enter(Amount::Usd("50.44".to_owned())).await.unwrap();
+    // strat.enter(Amount::Usd("50.44".to_owned())).await.unwrap();
 
-    // let cancellation = CancellationToken::new();
-    // let cloned_cancel = cancellation.clone();
-    // let runner_handle = tokio::spawn(async move { strat.run(cloned_cancel).await.unwrap() });
-    // sleep(Duration::from_secs(15));
-    // cancellation.cancel();
-    // tokio::join!(runner_handle).0.unwrap();
-    // println!("ending");
+    let cancellation = CancellationToken::new();
+    let cloned_cancel = cancellation.clone();
+    let runner_handle = tokio::spawn(async move { strat.run(cloned_cancel).await.unwrap() });
+    sleep(Duration::from_secs(15));
+    cancellation.cancel();
+    tokio::join!(runner_handle).0.unwrap();
+    println!("ending");
 }

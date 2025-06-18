@@ -1,3 +1,4 @@
+use log::{debug, error, info};
 use std::time::SystemTime;
 
 use alloy::dyn_abi::Eip712Domain;
@@ -98,8 +99,13 @@ fn get_formatted_position_with_amount_raw(
         MAX_DECIMALS_SPOT - sz_decimals
     };
     let px = format_significant_digits_and_decimals(out_px, decimals);
+    debug!(
+        "formatted position: px={}, sz={}, slippage={}",
+        px, sz, slippage
+    );
     (px.to_string(), sz.to_string())
 }
+
 pub trait HlAgentWallet {
     async fn sign_order(
         &self,
@@ -107,6 +113,7 @@ pub trait HlAgentWallet {
         to_sign: impl HyperLiquidSigningHash,
     ) -> Result<SignedMessage>;
 }
+
 pub struct HyperliquidClient<S>
 where
     S: HlAgentWallet,
@@ -122,6 +129,7 @@ where
     S: HlAgentWallet,
 {
     pub fn new(network: Network, signer: S, user: Address) -> Self {
+        info!("creating hyperliquid client for {} on {:?}", user, network);
         HyperliquidClient {
             client: reqwest::Client::new(),
             signer,
@@ -131,6 +139,11 @@ where
     }
 
     pub async fn get_user_funding_history(&self, since: u128) -> Result<FundingHistory> {
+        debug!(
+            "fetching funding history for user {} since {}",
+            self.user, since
+        );
+
         let end_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_millis() as u128;
@@ -153,13 +166,21 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to get funding history: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
+
         let out: FundingHistory = serde_json::from_str(body.as_str())?;
+        info!("retrieved funding history with {} entries", out.len());
         Ok(out)
     }
 
     pub async fn update_leverage(&self, a: u32, is_cross: bool, leverage: u32) -> Result<()> {
+        info!(
+            "updating leverage for asset {} to {}x (cross: {})",
+            a, leverage, is_cross
+        );
+
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_millis() as u64;
@@ -180,22 +201,29 @@ where
             signature,
             nonce: timestamp,
         };
-        let out = serde_json::to_string(&payload).unwrap();
-        println!("{} body", out);
+
+        debug!(
+            "update leverage payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
         let resp = self
             .client
             .post(format!("{}/exchange", Into::<String>::into(self.network)))
             .json(&payload)
             .send()
             .await?;
+
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to update leverage: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        println!("{:?}", out);
+        debug!("leverage update response: {:?}", out);
+        info!("successfully updated leverage for asset {}", a);
         Ok(())
     }
 
@@ -210,6 +238,15 @@ where
         slippage: f64,
         sz_decimals: i32,
     ) -> Result<()> {
+        info!(
+            "creating {} position for asset {} with ${} USD (price: {}, slippage: {}%)",
+            if is_buy { "buy" } else { "sell" },
+            a,
+            sz,
+            current_px,
+            slippage * 100.0
+        );
+
         let (px, sz) = get_formatted_position_with_amount(
             current_px,
             sz,
@@ -234,6 +271,15 @@ where
         slippage: f64,
         sz_decimals: i32,
     ) -> Result<()> {
+        info!(
+            "creating {} position for asset {} with size {} (price: {}, slippage: {}%)",
+            if is_buy { "buy" } else { "sell" },
+            a,
+            sz,
+            current_px,
+            slippage * 100.0
+        );
+
         let (px, sz) = get_formatted_position_with_amount_raw(
             current_px,
             sz,
@@ -263,8 +309,8 @@ where
             orders: vec![OrderRequest {
                 asset: a,
                 is_buy: is_buy,
-                limit_px: px,
-                sz: sz,
+                limit_px: px.clone(),
+                sz: sz.clone(),
                 reduce_only,
                 order_type: Order::Limit(crate::Limit { tif: "Ioc".into() }),
                 cloid: None,
@@ -282,26 +328,41 @@ where
             signature,
             nonce: timestamp,
         };
-        let out = serde_json::to_string(&payload).unwrap();
-        println!("{} body", out);
+
+        debug!(
+            "order payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
         let resp = self
             .client
             .post(format!("{}/exchange", Into::<String>::into(self.network)))
             .json(&payload)
             .send()
             .await?;
+
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to create position: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        println!("{:?}", out);
+        debug!("order response: {:?}", out);
+        info!(
+            "successfully placed {} order for asset {} (px: {}, sz: {})",
+            if is_buy { "buy" } else { "sell" },
+            a,
+            px,
+            sz
+        );
         Ok(())
     }
 
     pub async fn transfer_usd_to_spot(&self, amount: u64) -> Result<()> {
+        info!("transferring ${} USD to spot", amount);
+
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_millis() as u64;
@@ -314,11 +375,10 @@ where
             nonce: timestamp,
         };
 
-        println!("{:?}", transfer_req);
+        debug!("transfer request: {:?}", transfer_req);
 
         let (to_sign, domain) = generate_transfer_params(&transfer_req)?;
-
-        println!("{:?}", domain);
+        debug!("transfer domain: {:?}", domain);
 
         let signature = self.signer.sign_order(domain, to_sign).await?;
 
@@ -327,8 +387,12 @@ where
             signature,
             action: serde_json::to_value(Actions::UsdClassTransfer(transfer_req))?,
         };
-        let out = serde_json::to_string(&payload).unwrap();
-        println!("{} body", out);
+
+        debug!(
+            "transfer payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
         let resp = self
             .client
             .post(format!("{}/exchange", Into::<String>::into(self.network)))
@@ -339,14 +403,19 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to transfer USD: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        println!("{:?}", out);
+        debug!("transfer response: {:?}", out);
+        info!("successfully transferred ${} USD to spot", amount);
         Ok(())
     }
+
     pub async fn get_perp_info(&self) -> Result<PerpetualsInfo> {
+        debug!("fetching perpetuals info");
+
         let payload = GetInfoReq {
             asset_type: "metaAndAssetCtxs".into(),
         };
@@ -362,6 +431,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to get perp info: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
@@ -370,6 +440,8 @@ where
     }
 
     pub async fn get_spot_info(&self) -> Result<(SpotResponse)> {
+        debug!("fetching spot info");
+
         let payload = GetInfoReq {
             asset_type: "spotMetaAndAssetCtxs".into(),
         };
@@ -385,6 +457,7 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to get spot info: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
@@ -393,6 +466,8 @@ where
     }
 
     pub async fn get_user_spot_info(&self) -> Result<(UserSpotPosition)> {
+        debug!("fetching user spot positions for {}", self.user);
+
         let payload = GetUserInfoReq {
             request_type: "spotClearinghouseState".into(),
             user: self.user.to_string(),
@@ -409,15 +484,19 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to get user spot info: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
-        println!("{}", body);
+        debug!("user spot response: {}", body);
         let out: UserSpotPosition = serde_json::from_str(body.as_str())?;
+        info!("retrieved spot positions for user {}", self.user);
         Ok(out)
     }
 
     pub async fn get_user_perp_info(&self) -> Result<UserPerpPosition> {
+        debug!("fetching user perp positions for {}", self.user);
+
         let payload = GetUserInfoReq {
             request_type: "clearinghouseState".into(),
             user: self.user.to_string(),
@@ -434,14 +513,18 @@ where
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to get user perp info: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: UserPerpPosition = serde_json::from_str(body.as_str())?;
+        info!("retrieved perp positions for user {}", self.user);
         Ok(out)
     }
 
     pub async fn cancel_order(&self, oid: i64, a: u32) -> Result<()> {
+        info!("cancelling order {} for asset {}", oid, a);
+
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_millis() as u64;
@@ -460,22 +543,29 @@ where
             signature,
             nonce: timestamp,
         };
-        let out = serde_json::to_string(&payload).unwrap();
-        println!("{} body", out);
+
+        debug!(
+            "cancel order payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
         let resp = self
             .client
             .post(format!("{}/exchange", Into::<String>::into(self.network)))
             .json(&payload)
             .send()
             .await?;
+
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
+            error!("failed to cancel order: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        println!("{:?}", out);
+        debug!("cancel order response: {:?}", out);
+        info!("successfully cancelled order {} for asset {}", oid, a);
         Ok(())
     }
 }
@@ -486,10 +576,8 @@ mod tests {
 
     #[test]
     fn test_fmt() -> Result<()> {
-        println!(
-            "{}",
-            format_significant_digits_and_decimals(1.5655555555, 3)
-        );
+        let result = format_significant_digits_and_decimals(1.5655555555, 3);
+        debug!("format test result: {}", result);
         Ok(())
     }
 }

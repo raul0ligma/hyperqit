@@ -8,18 +8,19 @@ use crate::{
         Position, StrategyState,
     },
 };
-use std::time::{Duration, SystemTime};
-
-use anyhow::Ok;
 use log::{info, warn};
+use std::result::Result::Ok;
+use std::time::{Duration, SystemTime};
 use tokio::time;
 use tokio_util::sync::CancellationToken;
+
 pub struct Strategy<S>
 where
     S: HlAgentWallet,
 {
     asset: Asset,
     slippage: f64,
+    liq_threshold: f64,
     leverage: u32,
     dust_threshold: f64,
     tick_interval: Duration,
@@ -36,16 +37,79 @@ where
         asset: Asset,
         slippage: f64,
         dust_threshold: f64,
+        liq_threshold: f64,
         executor: HyperliquidClient<S>,
     ) -> Self {
         Strategy {
             asset,
             leverage,
             slippage,
+            liq_threshold,
             tick_interval,
             dust_threshold,
             executor,
         }
+    }
+
+    pub async fn info(&self) -> Result<()> {
+        match self.state().await {
+            Ok(state) => match state.status {
+                StrategyStatus::Active => {
+                    if let Some(pos) = state.position {
+                        info!(
+                            "active | funding: {:.3}% | mark: {:.2} | liq_risk: {:.1}% | pnl: {:.2}",
+                            pos.perp_funding_rate * 100.0,
+                            pos.perp_mid_px,
+                            if pos.liq_px > 0.0 {
+                                (1.0 - pos.perp_mid_px / pos.liq_px) * 100.0
+                            } else {
+                                0.0
+                            },
+                            pos.funding_earning_nh
+                        );
+                    }
+                }
+                StrategyStatus::InActive => {
+                    info!("inactive");
+                }
+            },
+            Err(e) => {
+                warn!("state check failed: {}", e);
+            }
+        }
+        Ok(())
+    }
+
+    async fn check_health(&self) -> Result<bool> {
+        let (perp_info, _) = self.get_market_data().await?;
+        let user_state = self.state().await?;
+
+        if user_state.status == StrategyStatus::InActive {
+            return Ok(false);
+        }
+
+        let current_funding_rate: f64 = perp_info.funding.parse()?;
+        if current_funding_rate < 0.0 {
+            info!("funding negative, exiting");
+            return Ok(true);
+        }
+
+        let current_mark_px: f64 = perp_info.mark_px.parse()?;
+        let user_pos = user_state.position.ok_or(errors::Errors::DataError(
+            "user_state".to_owned(),
+            "perp_position".to_owned(),
+        ))?;
+
+        if user_pos.liq_px <= 0.0 {
+            return Ok(false);
+        }
+
+        let should_exit = (1.0 - (current_mark_px / user_pos.liq_px)) <= self.liq_threshold;
+        if should_exit {
+            info!("liq risk high, exiting");
+        }
+
+        Ok(should_exit)
     }
 
     pub async fn run(&self, cancellation: CancellationToken) -> Result<()> {
@@ -54,12 +118,26 @@ where
 
         loop {
             tokio::select! {
-                tick_out = ticker.tick() =>{
+                _ = ticker.tick() => {
+                    let _ = self.info().await;
 
+                    match self.check_health().await {
+                        Ok(should_exit) => {
+                            if should_exit {
+                                match self.exit().await {
+                                    std::result::Result::Ok(_) => info!("exited position"),
+                                    Err(e) => warn!("exit failed: {}", e),
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("health check failed: {}", e);
+                        }
+                    }
                 }
-                _ = cancellation.cancelled() =>{
-                        warn!("cancelling strategy runner");
-                        break;
+                _ = cancellation.cancelled() => {
+                    warn!("cancelling strategy runner");
+                    break;
                 }
             }
         }
@@ -276,6 +354,7 @@ where
 
         Ok(())
     }
+
     pub async fn enter(&self, amount: Amount) -> Result<()> {
         let existing = self.state().await?;
         if existing.status == StrategyStatus::Active {
