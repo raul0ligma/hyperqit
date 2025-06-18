@@ -2,7 +2,7 @@ use log::{debug, error, info};
 use std::time::SystemTime;
 
 use alloy::dyn_abi::Eip712Domain;
-use alloy::primitives::Address;
+use alloy::primitives::{Address, FixedBytes};
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
@@ -110,7 +110,7 @@ pub trait HlAgentWallet {
     async fn sign_order(
         &self,
         domain: Eip712Domain,
-        to_sign: &dyn HyperLiquidSigningHash,
+        to_sign: FixedBytes<32>,
     ) -> Result<SignedMessage>;
 }
 
@@ -188,7 +188,9 @@ impl HyperliquidClient {
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
 
-        let signature = self.signer.sign_order(domain, &to_sign).await?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+
+        let signature = self.signer.sign_order(domain, hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -314,8 +316,8 @@ impl HyperliquidClient {
 
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
-
-        let signature = self.signer.sign_order(domain, &to_sign).await?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(domain, hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -374,7 +376,8 @@ impl HyperliquidClient {
         let (to_sign, domain) = generate_transfer_params(&transfer_req)?;
         debug!("transfer domain: {:?}", domain);
 
-        let signature = self.signer.sign_order(domain, &to_sign).await?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(domain, hash).await?;
 
         let payload = ExchangeRequest {
             nonce: timestamp,
@@ -529,8 +532,8 @@ impl HyperliquidClient {
 
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
-
-        let signature = self.signer.sign_order(domain, &to_sign).await?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(domain, hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
