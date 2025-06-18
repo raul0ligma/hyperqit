@@ -349,7 +349,7 @@ where
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        debug!("order response: {:?}", out);
+        info!("order response: {:?}", out);
         info!(
             "successfully placed {} order for asset {} (px: {}, sz: {})",
             if is_buy { "buy" } else { "sell" },

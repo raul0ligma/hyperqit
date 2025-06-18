@@ -115,19 +115,16 @@ pub fn generate_action_params(
     nonce: u64,
 ) -> Result<(Agent, Eip712Domain)> {
     let action_str: String = serde_json::to_string(action).unwrap();
-    print!("action {}", action_str);
     let mut bytes =
         rmp_serde::to_vec_named(action).map_err(|e| Errors::AgentSignature(e.to_string()))?;
     bytes.extend(nonce.to_be_bytes());
     bytes.push(0);
     let out: FixedBytes<32> = keccak256(bytes.clone());
-    print!("{}", hex::encode(out));
     let source = if is_mainnet { "a" } else { "b" }.to_string();
     let data = Agent {
         source,
         connectionId: out,
     };
-    println!("{:?}", data);
     Ok((
         data,
         eip712_domain! {
