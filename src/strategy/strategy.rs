@@ -160,7 +160,7 @@ impl Strategy {
             self.executor.get_perp_info().await?,
             self.executor.get_spot_info().await?,
         );
-        return match &self.asset {
+        match &self.asset {
             CommonAsset(key) => {
                 let common_info = find_market_by_name(&unified_info, key.as_str()).ok_or(
                     errors::Errors::DataError("unified_info".to_owned(), key.to_string()),
@@ -193,7 +193,7 @@ impl Strategy {
                     ))?;
                 Ok((perp_item.clone(), spot_item.clone()))
             }
-        };
+        }
     }
 
     async fn user_state(

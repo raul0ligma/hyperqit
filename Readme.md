@@ -1,54 +1,37 @@
-# **Hyperliquid Multi-Strategy Bot**
+# hlmm
 
-## **The Idea**
+A Rust-based automated trading bot for Hyperliquid, designed for robust, configurable strategy execution and risk management.
 
-Switch between delta neutral and market making based on funding conditions. When funding is positive, collect funding payments. When funding is negative, run market making with buy bias.
+## Features
 
-## **Strategy Logic**
+- **Strategy Engine:**
 
-- **Positive funding** → Long spot + short perp (collect funding payments)
-- **Negative funding** → Market making with buy bias (accumulate during pessimism)
-- **Check hourly** for funding payments, switch every 8 hours on rate updates
+  - Periodically evaluates market and funding conditions.
+  - Dynamically manages positions in spot and perpetual markets.
+  - Supports configurable leverage, slippage, and liquidation risk thresholds.
 
-## **Core Components**
+- **Health and Risk Monitoring:**
 
-### **Strategy Switching Engine**
+  - Monitors funding rates and proximity to liquidation.
+  - Automatically exits or maintains positions based on real-time risk assessment.
 
-- Monitor funding rates
-- Transition between strategies
-- Handle position changes
+- **Position Management:**
 
-### **Delta Neutral Strategy**
+  - Programmatic entry and exit of positions.
+  - Unified handling of spot and perp assets.
+  - Automated rebalancing and state tracking.
 
-- Long spot position
-- Equal short perp position
-- Automatic rebalancing
-- Funding collection
+- **Hyperliquid Integration:**
+  - Direct interaction with Hyperliquid APIs for order placement, funding history, leverage updates, and asset transfers.
+  - Secure signing and wallet management.
 
-### **Market Making Strategy**
+## Strategy Logic
 
-- Place bid/ask orders around mid
-- Buy bias during negative funding
-- Inventory management
-- Spread capture
+- **Risk-Aware Execution:**
+  - Enters positions according to user configuration.
+  - Exits positions if funding turns negative or liquidation risk exceeds threshold.
+  - Maintains positions when conditions are favorable, with continuous monitoring.
 
-### **Risk Management**
+## Configuration
 
-- Position size limits
-- Daily loss limits
-- Emergency exit logic
-
-## **Implementation Order**
-
-1. Basic market maker with configuration
-2. Delta neutral strategy with funding monitoring
-3. Strategy switching logic
-4. Risk management and observability
-5. Testing and optimization
-
-## **Key Decisions**
-
-- Funding rate thresholds for switching
-- Market making bias levels
-- Position sizing and risk limits
-- Rebalancing frequency
+- All operational parameters (keys, asset, thresholds) are set via environment variables.

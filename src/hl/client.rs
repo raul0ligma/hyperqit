@@ -1,7 +1,6 @@
 use log::{debug, error, info};
 use std::time::SystemTime;
 
-use alloy::dyn_abi::Eip712Domain;
 use alloy::primitives::{Address, FixedBytes};
 
 use crate::errors::{Errors, Result};
@@ -136,7 +135,7 @@ impl HyperliquidClient {
 
         let end_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
-            .as_millis() as u128;
+            .as_millis();
 
         let req = GetUserFundingHistoryReq {
             request_type: "userFunding".into(),
@@ -177,8 +176,8 @@ impl HyperliquidClient {
 
         let action: Actions = Actions::UpdateLeverage(crate::UpdateLeverage {
             asset: a,
-            is_cross: is_cross,
-            leverage: leverage,
+            is_cross,
+            leverage,
         });
 
         let is_mainnet = self.network == Network::Mainnet;
@@ -300,7 +299,7 @@ impl HyperliquidClient {
         let action: Actions = Actions::Order(crate::BulkOrder {
             orders: vec![OrderRequest {
                 asset: a,
-                is_buy: is_buy,
+                is_buy,
                 limit_px: px.clone(),
                 sz: sz.clone(),
                 reduce_only,
@@ -432,7 +431,7 @@ impl HyperliquidClient {
         Ok(out)
     }
 
-    pub async fn get_spot_info(&self) -> Result<(SpotResponse)> {
+    pub async fn get_spot_info(&self) -> Result<SpotResponse> {
         debug!("fetching spot info");
 
         let payload = GetInfoReq {
@@ -458,7 +457,7 @@ impl HyperliquidClient {
         Ok(out)
     }
 
-    pub async fn get_user_spot_info(&self) -> Result<(UserSpotPosition)> {
+    pub async fn get_user_spot_info(&self) -> Result<UserSpotPosition> {
         debug!("fetching user spot positions for {}", self.user);
 
         let payload = GetUserInfoReq {
@@ -523,7 +522,7 @@ impl HyperliquidClient {
             .as_millis() as u64;
 
         let action: Actions = Actions::Cancel(crate::BulkCancel {
-            cancels: vec![CancelOrder { asset: a, oid: oid }],
+            cancels: vec![CancelOrder { asset: a, oid }],
         });
 
         let is_mainnet = self.network == Network::Mainnet;

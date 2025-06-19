@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{Json, extract::State, response::IntoResponse};
+use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 
 use crate::services::{CurrentUserPositionResponse, OpenPositionRequest, StrategyManagerService};

@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time::Duration;
 
 use alloy::primitives::Address;
@@ -13,7 +12,7 @@ use tokio_util::sync::CancellationToken;
 async fn main() {
     env_logger::init();
     let config = hlmm::Config::init_from_env().unwrap();
-    let signer = Signers::Local(hlmm::LocalWallet::signer(config.private_key.into()));
+    let signer = Signers::Local(hlmm::LocalWallet::signer(config.private_key));
 
     let user_address: Address = config.user_address.parse().unwrap();
 
