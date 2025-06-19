@@ -66,7 +66,6 @@ impl Strategy {
                             },
                             pos.funding_earning_nh
                         );
-                        self.notifier.notify("state", &state.clone()).await;
                     }
                 }
                 StrategyStatus::InActive => {
