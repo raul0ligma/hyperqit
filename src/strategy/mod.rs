@@ -25,7 +25,7 @@ pub enum StrategyStatus {
     InActive,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     perp_amount: f64,
@@ -41,7 +41,7 @@ pub struct Position {
     at: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyState {
     pub status: StrategyStatus,

@@ -3,6 +3,7 @@ use crate::{
     StrategyStatus, create_unified_market_info,
     errors::{self, Result},
     find_market_by_name,
+    notifier::NotifierService,
     strategy::{
         Asset::{self, CommonAsset, WithPerpAndSpot},
         Position, StrategyState,
@@ -23,6 +24,7 @@ pub struct Strategy {
     dust_threshold: f64,
     tick_interval: Duration,
     executor: HyperliquidClient,
+    notifier: NotifierService,
 }
 
 impl Strategy {
@@ -34,6 +36,7 @@ impl Strategy {
         dust_threshold: f64,
         liq_threshold: f64,
         executor: HyperliquidClient,
+        notifier: NotifierService,
     ) -> Self {
         Strategy {
             asset,
@@ -43,6 +46,7 @@ impl Strategy {
             tick_interval,
             dust_threshold,
             executor,
+            notifier,
         }
     }
 
@@ -50,7 +54,7 @@ impl Strategy {
         match self.state().await {
             Ok(state) => match state.status {
                 StrategyStatus::Active => {
-                    if let Some(pos) = state.position {
+                    if let Some(pos) = state.clone().position {
                         info!(
                             "active | funding: {:.3}% | mark: {:.2} | liq_risk: {:.1}% | pnl: {:.9}",
                             pos.perp_funding_rate * 100.0,
@@ -62,6 +66,7 @@ impl Strategy {
                             },
                             pos.funding_earning_nh
                         );
+                        self.notifier.notify("state", &state.clone()).await;
                     }
                 }
                 StrategyStatus::InActive => {
@@ -88,10 +93,12 @@ impl Strategy {
         info!("check: funding rate {:.4}%", current_funding_rate * 100.0);
 
         if current_funding_rate < 0.0 {
-            info!(
+            let check = format!(
                 "decision: funding negative ({:.4}%), exiting position",
                 current_funding_rate * 100.0
             );
+            info!("{}", check);
+            self.notifier.notify("check", &check).await;
             return Ok(true);
         }
 
@@ -110,11 +117,13 @@ impl Strategy {
 
         let should_exit = price_ratio >= self.liq_threshold;
         if should_exit {
-            info!(
+            let check = format!(
                 "decision: price {:.1}% of liq price exceeds threshold {:.1}%, exiting position",
                 price_ratio * 100.0,
                 self.liq_threshold * 100.0
             );
+            info!("{}", check);
+            self.notifier.notify("check", &check).await;
         } else {
             info!("decision: conditions good, maintaining position");
         }
@@ -299,6 +308,7 @@ impl Strategy {
     }
 
     pub async fn exit(&self) -> Result<()> {
+        self.notifier.notify_text("exit", "processing").await;
         let (perp_info, spot_info) = self.get_market_data().await?;
         let perp_key = perp_info.name.clone();
         let spot_key = spot_info.asset_id.clone().to_string();
@@ -362,6 +372,7 @@ impl Strategy {
             .await
             .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
 
+        self.notifier.notify_text("exit", "completed").await;
         Ok(())
     }
 
@@ -390,7 +401,9 @@ impl Strategy {
             .mid_px
             .unwrap_or(perp_info.clone().mark_px)
             .parse()?;
-
+        self.notifier
+            .notify_text("enter", &format!("sz {} px {}", sz, spot_mid))
+            .await;
         let spot_decimals = spot_info.sz_decimals as i32;
 
         let perp_mid: f64 = perp_info.mid_px.unwrap_or(perp_info.mark_px).parse()?;
@@ -455,7 +468,7 @@ impl Strategy {
                 .await
                 .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
         }
-
+        self.notifier.notify_text("enter", "completed").await;
         Ok(())
     }
 }

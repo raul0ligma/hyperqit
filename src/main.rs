@@ -19,14 +19,16 @@ async fn main() {
     let executor = crate::HyperliquidClient::new(Network::Mainnet, signer, user_address);
 
     let asset = Asset::CommonAsset("HYPE".to_owned());
+    let notifier = NotifierService::new(config.bot_url, user_address.to_string());
     let strategy = Arc::new(Strategy::new(
         1,
-        Duration::from_secs(10),
+        Duration::from_secs(config.check_every),
         asset.clone(),
         0.005,
         0.1f64,
         0.7,
         executor,
+        notifier,
     ));
 
     let strategy_manager = Arc::new(StrategyManagerService::new(
@@ -36,8 +38,10 @@ async fn main() {
     ));
     let app = create_router(strategy_manager);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    println!("Server running on http://localhost:3000");
+    let listener = tokio::net::TcpListener::bind(config.bind_addr.clone())
+        .await
+        .unwrap();
+    info!("server running on http://{}", config.bind_addr);
 
     let cancellation = CancellationToken::new();
     let strategy_for_runner = strategy.clone();
