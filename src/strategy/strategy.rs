@@ -52,7 +52,7 @@ impl Strategy {
                 StrategyStatus::Active => {
                     if let Some(pos) = state.position {
                         info!(
-                            "active | funding: {:.3}% | mark: {:.2} | liq_risk: {:.1}% | pnl: {:.2}",
+                            "active | funding: {:.3}% | mark: {:.2} | liq_risk: {:.1}% | pnl: {:.9}",
                             pos.perp_funding_rate * 100.0,
                             pos.perp_mid_px,
                             if pos.liq_px > 0.0 {

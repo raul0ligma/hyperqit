@@ -165,7 +165,7 @@ impl HyperliquidClient {
         }
 
         let out: FundingHistory = serde_json::from_str(body.as_str())?;
-        info!("retrieved funding history with {} entries", out.len());
+        debug!("retrieved funding history with {} entries", out.len());
         Ok(out)
     }
 
