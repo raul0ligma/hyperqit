@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Ok;
 use serde::{Deserialize, Serialize};
 
-use crate::{Amount, Asset, HlAgentWallet, Strategy, StrategyState, errors::Result};
+use crate::{Amount, Asset, Strategy, StrategyState, errors::Result};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

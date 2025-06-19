@@ -107,11 +107,7 @@ fn get_formatted_position_with_amount_raw(
 }
 
 pub trait HlAgentWallet {
-    async fn sign_order(
-        &self,
-        domain: Eip712Domain,
-        to_sign: FixedBytes<32>,
-    ) -> Result<SignedMessage>;
+    async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage>;
 }
 
 pub struct HyperliquidClient {
@@ -190,7 +186,7 @@ impl HyperliquidClient {
 
         let hash = to_sign.hyperliquid_signing_hash(&domain);
 
-        let signature = self.signer.sign_order(domain, hash).await?;
+        let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -317,7 +313,7 @@ impl HyperliquidClient {
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
         let hash = to_sign.hyperliquid_signing_hash(&domain);
-        let signature = self.signer.sign_order(domain, hash).await?;
+        let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -377,7 +373,7 @@ impl HyperliquidClient {
         debug!("transfer domain: {:?}", domain);
 
         let hash = to_sign.hyperliquid_signing_hash(&domain);
-        let signature = self.signer.sign_order(domain, hash).await?;
+        let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
             nonce: timestamp,
@@ -533,7 +529,7 @@ impl HyperliquidClient {
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
         let hash = to_sign.hyperliquid_signing_hash(&domain);
-        let signature = self.signer.sign_order(domain, hash).await?;
+        let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,

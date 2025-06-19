@@ -44,12 +44,7 @@ impl LocalWallet {
 }
 
 impl crate::HlAgentWallet for Signers {
-    async fn sign_order(
-        &self,
-        domain: Eip712Domain,
-        to_sign: FixedBytes<32>,
-    ) -> Result<SignedMessage> {
-        // let hash = to_sign.hyperliquid_signing_hash(&domain);
+    async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage> {
         let signature = match self {
             Signers::Local(wallet) => wallet.sign_hash(to_sign),
         }
