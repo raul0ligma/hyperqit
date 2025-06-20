@@ -10,5 +10,4 @@ FROM debian:bookworm-slim
 WORKDIR /app
 COPY --from=builder /app/target/release/hlmm /app/hlmm
 
-# If you need environment variables, mount or pass them at runtime
 ENTRYPOINT ["/app/hlmm"] 

@@ -1,0 +1,55 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install jq (for makefile)
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    - name: Load environment variables
+      run: |
+        if [ -f .env ]; then
+          set -a
+          source .env
+          set +a
+        fi
+
+    - name: Run lint
+      run: make lint
+
+    - name: Run tests
+      run: make test
+
+    - name: Run build
+      run: make build
+
+    - name: Check formatting
+      run: cargo fmt -- --check
+
