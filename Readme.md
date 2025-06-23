@@ -1,6 +1,6 @@
-# hlmm
+# hyperqit
 
-A Rust-based automated trading bot for Hyperliquid, designed for robust, configurable strategy execution and risk management.
+A rust-based hyperliquid integration ot build strategies (interact with core and hypevm both)
 
 ## Features
 

@@ -8,6 +8,6 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 
 WORKDIR /app
-COPY --from=builder /app/target/release/hlmm /app/hlmm
+COPY --from=builder /app/target/release/hyperqit /app/hyperqit
 
-ENTRYPOINT ["/app/hlmm"] 
+ENTRYPOINT ["/app/hyperqit"] 
