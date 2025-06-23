@@ -2668,34 +2668,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hlmm"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "axum",
- "env_logger",
- "envconfig",
- "ethers",
- "futures",
- "http-body-util",
- "httpclient",
- "hyper 1.6.0",
- "hyper-util",
- "log",
- "machineid-rs",
- "qrcode",
- "reqwest 0.12.19",
- "rmp-serde",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "tokio-tungstenite 0.26.2",
- "tokio-util",
-]
-
-[[package]]
 name = "hmac"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2927,6 +2899,34 @@ dependencies = [
  "tower-service",
  "tracing",
  "windows-registry",
+]
+
+[[package]]
+name = "hyperqit"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "axum",
+ "env_logger",
+ "envconfig",
+ "ethers",
+ "futures",
+ "http-body-util",
+ "httpclient",
+ "hyper 1.6.0",
+ "hyper-util",
+ "log",
+ "machineid-rs",
+ "qrcode",
+ "reqwest 0.12.19",
+ "rmp-serde",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-tungstenite 0.26.2",
+ "tokio-util",
 ]
 
 [[package]]
