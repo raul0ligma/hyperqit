@@ -2,6 +2,8 @@
 name = "hyperqit"
 version = "0.1.0"
 edition = "2024"
+description = "rust sdk for interacting with hyperliquid"
+license = "MIT" 
 
 
 [lib]
