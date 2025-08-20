@@ -12,13 +12,18 @@ async fn main() {
 
     let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
+    let sz_decimals = 0;
     let resp = executor
         .perp_deploy_action(PerpDeployAction::RegisterAsset(RegisterAsset {
             max_gas: None,
             asset_request: RegisterAssetRequest {
                 coin: "dex:TICKER".into(),
                 sz_decimals: 0,
-                oracle_px: "69.0".into(),
+                oracle_px: format_significant_digits_and_decimals(
+                    69.6969696996,
+                    MAX_DECIMALS_PERP - sz_decimals,
+                )
+                .to_string(),
                 margin_table_id: 5,
                 only_isolated: true,
             },
