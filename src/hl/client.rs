@@ -13,7 +13,7 @@ use crate::hl::user_info::{
     FundingHistory, GetUserFundingHistoryReq, GetUserInfoReq, UserPerpPosition, UserSpotPosition,
 };
 use crate::hl::{Actions, TransferRequest};
-use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, Signers};
+use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction, Signers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Network {
@@ -558,6 +558,53 @@ impl HyperliquidClient {
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("cancel order response: {:?}", out);
         info!("successfully cancelled order {} for asset {}", oid, a);
+        Ok(())
+    }
+
+    pub async fn perp_deploy_action(&self, deploy_params: PerpDeployAction) -> Result<()> {
+        debug!("creating perp deploy action {:?}", deploy_params.clone());
+
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_millis() as u64;
+
+        let action: Actions = Actions::PerpDeploy(deploy_params.clone());
+
+        let is_mainnet = self.network == Network::Mainnet;
+        let (to_sign, domain) = generate_action_params(&action, is_mainnet, timestamp)?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(hash).await?;
+
+        let payload = ExchangeRequest {
+            action: serde_json::to_value(action)?,
+            signature,
+            nonce: timestamp,
+        };
+
+        debug!(
+            "perp deploy action: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!(
+                "failed to call perp deploy action: {} - {}",
+                status_code, body
+            );
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("perp deploy action response: {:?}", out);
         Ok(())
     }
 }

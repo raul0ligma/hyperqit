@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -52,6 +54,7 @@ pub enum Actions {
     UsdClassTransfer(TransferRequest),
     Cancel(BulkCancel),
     UpdateLeverage(UpdateLeverage),
+    PerpDeploy(PerpDeployAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,3 +86,50 @@ pub struct UpdateLeverage {
     pub is_cross: bool,
     pub leverage: u32,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexSchemaInput {
+    pub full_name: String,
+    pub collateral_token: u64,
+    pub oracle_updater: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterAssetRequest {
+    pub coin: String,
+    pub sz_decimals: u64,
+    pub oracle_px: String,
+    pub margin_table_id: u64,
+    pub only_isolated: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterAsset {
+    pub max_gas: Option<u64>,
+    pub asset_request: RegisterAssetRequest,
+    pub dex: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<PerpDexSchemaInput>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+
+pub enum PerpDeployAction {
+    RegisterAsset(RegisterAsset),
+    SetFundingMultiplier(SetFundingMultipliers),
+    SetOracle(SetOracle),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetOracle {
+    pub dex: String,
+    pub oracle_pxs: Vec<[String; 2]>,
+    pub mark_pxs: Vec<Vec<[String; 2]>>,
+}
+
+pub type SetFundingMultipliers = Vec<[String; 2]>;
