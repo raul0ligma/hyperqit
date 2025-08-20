@@ -16,15 +16,15 @@ async fn main() {
         .perp_deploy_action(PerpDeployAction::RegisterAsset(RegisterAsset {
             max_gas: None,
             asset_request: RegisterAssetRequest {
-                coin: "hybet:PLINKO".into(),
+                coin: "dex:TICKER".into(),
                 sz_decimals: 0,
-                oracle_px: "6969.0".into(),
+                oracle_px: "69.0".into(),
                 margin_table_id: 5,
                 only_isolated: true,
             },
-            dex: "hybet".into(),
+            dex: "dex".into(),
             schema: Some(PerpDexSchemaInput {
-                full_name: "hyperbet".into(),
+                full_name: "dex-full-name".into(),
                 collateral_token: 0,
                 oracle_updater: None,
             }),
