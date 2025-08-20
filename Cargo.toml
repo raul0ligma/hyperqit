@@ -3,6 +3,19 @@ name = "hyperqit"
 version = "0.1.0"
 edition = "2024"
 
+
+[lib]
+name = "hyperqit"
+path = "src/lib.rs"
+
+[[bin]]
+name = "strat"
+path = "src/bin/strategy.rs"
+
+[[bin]]
+name = "deployer"
+path = "src/bin/perp_deployer.rs"
+
 [dependencies]
 alloy = "1.0.9"
 anyhow = "1.0.98"

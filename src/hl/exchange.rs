@@ -114,7 +114,6 @@ pub fn generate_action_params(
     is_mainnet: bool,
     nonce: u64,
 ) -> Result<(Agent, Eip712Domain)> {
-    let action_str: String = serde_json::to_string(action).unwrap();
     let mut bytes =
         rmp_serde::to_vec_named(action).map_err(|e| Errors::AgentSignature(e.to_string()))?;
     bytes.extend(nonce.to_be_bytes());

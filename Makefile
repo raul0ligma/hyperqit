@@ -1,8 +1,12 @@
 -include .env
 export
 
-run:
-	cargo run
+
+run-strat:
+	cargo run --bin strat
+
+run-deployer:
+	cargo run --bin deployer
 
 debug:
 	cargo build

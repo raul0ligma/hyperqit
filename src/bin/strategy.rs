@@ -16,8 +16,7 @@ async fn main() {
 
     let user_address: Address = config.user_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Mainnet, signer, user_address);
-
+    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
     let asset = Asset::CommonAsset("HYPE".to_owned());
     let notifier = NotifierService::new(config.bot_url, user_address.to_string());
     let strategy = Arc::new(Strategy::new(
