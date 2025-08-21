@@ -130,16 +130,16 @@ pub fn generate_send_asset_params(
     Ok((
         TransferClass {
             type_string: "HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)".to_owned(),
-            inner: SendAsset { 
+            inner: SendAsset {
                 hyperliquidChain: req.chain.clone(),
-                 destination:req.destination.clone(), 
-                 sourceDex: req.source_dex.clone(), 
-                 destinationDex: req.dst_dex.clone(),
+                destination:req.destination.clone(),
+                sourceDex: req.source_dex.clone(),
+                destinationDex: req.dst_dex.clone(),
                 token: req.token.clone(),
-                amount: req.amount.clone(), 
+                amount: req.amount.clone(),
                 fromSubAccount: req.from_sub_account.clone(),
-                  nonce: req.nonce,
-            } 
+                nonce: req.nonce,
+            }
         },
         eip712_domain! {
             name : "HyperliquidSignTransaction",
