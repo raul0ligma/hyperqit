@@ -99,6 +99,8 @@ pub struct GetUserInfoReq {
     #[serde(rename = "type")]
     pub request_type: String,
     pub user: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dex: Option<String>,
 }
 
 pub type FundingHistory = Vec<UserTransaction>;

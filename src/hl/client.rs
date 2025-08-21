@@ -5,7 +5,8 @@ use alloy::primitives::{Address, FixedBytes};
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
-    ExchangeRequest, ExchangeResponse, generate_action_params, generate_transfer_params,
+    ExchangeRequest, ExchangeResponse, generate_action_params, generate_send_asset_params,
+    generate_transfer_params,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
 use crate::hl::message::SignedMessage;
@@ -15,7 +16,10 @@ use crate::hl::user_info::{
 };
 use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
-use crate::{CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction, Signers};
+use crate::{
+    CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction, SendAssetRequest,
+    Signers,
+};
 
 pub trait HlAgentWallet {
     async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage>;
@@ -196,6 +200,50 @@ impl HyperliquidClient {
         Ok(())
     }
 
+    pub async fn create_position_raw(&self, orders: Vec<OrderRequest>) -> Result<()> {
+        let nonce = self.nonce_manager.get_next_nonce();
+
+        let action: Actions = Actions::Order(crate::BulkOrder {
+            orders: orders,
+            grouping: "na".to_string(),
+        });
+
+        let is_mainnet = self.network == Network::Mainnet;
+        let (to_sign, domain) = generate_action_params(&action, is_mainnet, nonce)?;
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature: SignedMessage = self.signer.sign_order(hash).await?;
+
+        let payload = ExchangeRequest {
+            action: serde_json::to_value(action)?,
+            signature,
+            nonce,
+        };
+
+        debug!(
+            "order payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to create position: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        info!("order response: {:?}", out);
+        info!("successfully placed batch order)");
+        Ok(())
+    }
+
     async fn create_position(
         &self,
         a: u32,
@@ -222,7 +270,7 @@ impl HyperliquidClient {
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, nonce)?;
         let hash = to_sign.hyperliquid_signing_hash(&domain);
-        let signature = self.signer.sign_order(hash).await?;
+        let signature: SignedMessage = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
             action: serde_json::to_value(action)?,
@@ -313,11 +361,57 @@ impl HyperliquidClient {
         Ok(())
     }
 
-    pub async fn get_perp_info(&self) -> Result<PerpetualsInfo> {
+    pub async fn send_asset_to_dex(&self, req: SendAssetRequest) -> Result<()> {
+        info!("transferring to dex {}", req.dst_dex.clone());
+        let mut transfer_req = req.clone();
+        let nonce = self.nonce_manager.get_next_nonce();
+        transfer_req.nonce = nonce;
+
+        debug!("send asset request: {:?}", transfer_req);
+
+        let (to_sign, domain) = generate_send_asset_params(&transfer_req)?;
+        debug!("transfer domain: {:?}", domain);
+
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(hash).await?;
+
+        let payload = ExchangeRequest {
+            nonce,
+            signature,
+            action: serde_json::to_value(Actions::SendAsset(transfer_req))?,
+        };
+
+        debug!(
+            "send asset payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to send asset: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("send asset response: {:?}", out);
+        info!("successfully sent asset");
+        Ok(())
+    }
+
+    pub async fn get_perp_info(&self, dex: Option<String>) -> Result<PerpetualsInfo> {
         debug!("fetching perpetuals info");
 
         let payload = GetInfoReq {
             asset_type: "metaAndAssetCtxs".into(),
+            dex,
         };
 
         let resp = self
@@ -339,11 +433,12 @@ impl HyperliquidClient {
         Ok(out)
     }
 
-    pub async fn get_spot_info(&self) -> Result<SpotResponse> {
+    pub async fn get_spot_info(&self, dex: Option<String>) -> Result<SpotResponse> {
         debug!("fetching spot info");
 
         let payload = GetInfoReq {
             asset_type: "spotMetaAndAssetCtxs".into(),
+            dex,
         };
 
         let resp = self
@@ -365,12 +460,13 @@ impl HyperliquidClient {
         Ok(out)
     }
 
-    pub async fn get_user_spot_info(&self) -> Result<UserSpotPosition> {
+    pub async fn get_user_spot_info(&self, dex: Option<String>) -> Result<UserSpotPosition> {
         debug!("fetching user spot positions for {}", self.user);
 
         let payload = GetUserInfoReq {
             request_type: "spotClearinghouseState".into(),
             user: self.user.to_string(),
+            dex,
         };
 
         let resp = self
@@ -394,12 +490,13 @@ impl HyperliquidClient {
         Ok(out)
     }
 
-    pub async fn get_user_perp_info(&self) -> Result<UserPerpPosition> {
+    pub async fn get_user_perp_info(&self, dex: Option<String>) -> Result<UserPerpPosition> {
         debug!("fetching user perp positions for {}", self.user);
 
         let payload = GetUserInfoReq {
             request_type: "clearinghouseState".into(),
             user: self.user.to_string(),
+            dex,
         };
 
         let resp = self
@@ -512,4 +609,3 @@ impl HyperliquidClient {
         Ok(())
     }
 }
-

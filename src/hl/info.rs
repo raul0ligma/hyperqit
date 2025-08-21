@@ -42,6 +42,8 @@ pub struct PerpetualMetadata {
 pub struct GetInfoReq {
     #[serde(rename = "type")]
     pub asset_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dex: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

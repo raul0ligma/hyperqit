@@ -32,7 +32,7 @@ pub enum Order {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TransferRequest {
-    #[serde(rename = "hyperliquidChain", alias = "isBuy")]
+    #[serde(rename = "hyperliquidChain")]
     pub chain: String,
     #[serde(rename = "signatureChainId")]
     pub sig_chain_id: String,
@@ -53,6 +53,7 @@ pub enum Actions {
     Cancel(BulkCancel),
     UpdateLeverage(UpdateLeverage),
     PerpDeploy(PerpDeployAction),
+    SendAsset(SendAssetRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,3 +132,25 @@ pub struct SetOracle {
 }
 
 pub type SetFundingMultipliers = Vec<[String; 2]>;
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SendAssetRequest {
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
+    #[serde(rename = "signatureChainId")]
+    pub sig_chain_id: String,
+    #[serde(rename = "destination")]
+    pub destination: String,
+    #[serde(rename = "sourceDex")]
+    pub source_dex: String,
+    #[serde(rename = "destinationDex")]
+    pub dst_dex: String,
+    #[serde(rename = "amount")]
+    pub amount: String,
+    #[serde(rename = "token")]
+    pub token: String,
+    #[serde(rename = "fromSubAccount")]
+    pub from_sub_account: String,
+    #[serde(rename = "nonce")]
+    pub nonce: u64,
+}

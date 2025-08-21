@@ -9,7 +9,7 @@ use alloy::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HyperLiquidSigningHash,
+    HyperLiquidSigningHash, SendAssetRequest,
     errors::{Errors, Result},
     hl::{SignedMessage, TransferRequest},
 };
@@ -33,6 +33,18 @@ sol! {
         string hyperliquidChain;
         string amount;
         bool toPerp;
+        uint64 nonce;
+    }
+
+    #[derive(Serialize)]
+    struct SendAsset {
+        string hyperliquidChain;
+        string destination;
+        string sourceDex;
+        string destinationDex;
+        string token;
+        string amount;
+        string fromSubAccount;
         uint64 nonce;
     }
 
@@ -70,7 +82,7 @@ where
         let mut struct_hash_input = Vec::new();
         struct_hash_input.extend_from_slice(type_hash.as_slice());
         struct_hash_input.extend_from_slice(&encoded_data);
-        let struct_hash = keccak256(&struct_hash_input);
+        let struct_hash: FixedBytes<32> = keccak256(&struct_hash_input);
 
         let mut signing_input = [0u8; 2 + 32 + 32];
         signing_input[0] = 0x19;
@@ -104,7 +116,36 @@ pub fn generate_transfer_params(
             version : "1",
             chain_id : chain_id,
             verifying_contract : address!("0x0000000000000000000000000000000000000000"),
+        },
+    ))
+}
 
+pub fn generate_send_asset_params(
+    req: &SendAssetRequest,
+) -> Result<(TransferClass<SendAsset>, Eip712Domain)> {
+    let hex_str = req.sig_chain_id.strip_prefix("0x").unwrap_or(&req.chain);
+    let chain_raw = hex::decode(hex_str)?;
+    let chain_id: u64 = U256::from_be_slice(chain_raw.as_slice()).try_into()?;
+
+    Ok((
+        TransferClass {
+            type_string: "HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)".to_owned(),
+            inner: SendAsset { 
+                hyperliquidChain: req.chain.clone(),
+                 destination:req.destination.clone(), 
+                 sourceDex: req.source_dex.clone(), 
+                 destinationDex: req.dst_dex.clone(),
+                token: req.token.clone(),
+                amount: req.amount.clone(), 
+                fromSubAccount: req.from_sub_account.clone(),
+                  nonce: req.nonce,
+            } 
+        },
+        eip712_domain! {
+            name : "HyperliquidSignTransaction",
+            version : "1",
+            chain_id : chain_id,
+            verifying_contract : address!("0x0000000000000000000000000000000000000000"),
         },
     ))
 }

@@ -165,8 +165,8 @@ impl Strategy {
 
     pub async fn get_market_data(&self) -> Result<(PerpMarketInfo, SpotMarketInfo)> {
         let unified_info = create_unified_market_info(
-            self.executor.get_perp_info().await?,
-            self.executor.get_spot_info().await?,
+            self.executor.get_perp_info(None).await?,
+            self.executor.get_spot_info(None).await?,
         );
         match &self.asset {
             CommonAsset(key) => {
@@ -209,8 +209,8 @@ impl Strategy {
         perp_info: &PerpMarketInfo,
         spot_info: &SpotMarketInfo,
     ) -> Result<(Option<AssetPosition>, Option<Balance>)> {
-        let user_perp = self.executor.get_user_perp_info().await?;
-        let user_spot = self.executor.get_user_spot_info().await?;
+        let user_perp = self.executor.get_user_perp_info(None).await?;
+        let user_spot = self.executor.get_user_spot_info(None).await?;
         let current_spot_pos = user_spot
             .balances
             .iter()
