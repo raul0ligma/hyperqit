@@ -132,3 +132,94 @@ pub struct GetUserFundingHistoryReq {
     pub start_time: u128,
     pub end_time: u128,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserOpenOrders {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dex: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetUserFills {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+    pub aggregate_by_time: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetHistoricalOrders {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+}
+
+pub type UserOpenOrdersResponse = Vec<OpenOrder>;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenOrder {
+    pub coin: String,
+    pub limit_px: String,
+    pub oid: i64,
+    pub side: String,
+    pub sz: String,
+    pub timestamp: i64,
+}
+
+pub type UserFillsResponse = Vec<Fills>;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fills {
+    pub closed_pnl: String,
+    pub coin: String,
+    pub crossed: bool,
+    pub dir: String,
+    pub hash: String,
+    pub oid: i64,
+    pub px: String,
+    pub side: String,
+    pub start_position: String,
+    pub sz: String,
+    pub time: i64,
+    pub fee: String,
+    pub fee_token: String,
+    pub builder_fee: Option<String>,
+    pub tid: i64,
+}
+
+pub type UserOrderHistoryResponse = Vec<OrderWithStatus>;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderWithStatus {
+    pub order: Order,
+    pub status: String,
+    pub status_timestamp: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Order {
+    pub coin: String,
+    pub side: String,
+    pub limit_px: String,
+    pub sz: String,
+    pub oid: i64,
+    pub timestamp: i64,
+    pub trigger_condition: String,
+    pub is_trigger: bool,
+    pub trigger_px: String,
+    pub children: Vec<serde_json::Value>,
+    pub is_position_tpsl: bool,
+    pub reduce_only: bool,
+    pub order_type: String,
+    pub orig_sz: String,
+    pub tif: String,
+    pub cloid: Option<String>,
+}

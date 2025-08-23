@@ -17,8 +17,9 @@ use crate::hl::user_info::{
 use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
 use crate::{
-    BulkCancel, BulkOrder, CancelOrder, ExchangeOrderResponse, HyperLiquidSigningHash, Order,
-    OrderRequest, PerpDeployAction, SendAssetRequest, Signers,
+    BulkCancel, BulkOrder, CancelOrder, ExchangeOrderResponse, GetHistoricalOrders, GetUserFills,
+    GetUserOpenOrders, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction,
+    SendAssetRequest, Signers, UserFillsResponse, UserOpenOrdersResponse, UserOrderHistoryResponse,
 };
 
 pub trait HlAgentWallet {
@@ -77,10 +78,90 @@ impl HyperliquidClient {
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
-        let out: FundingHistory = serde_json::from_str(body.as_str())?;
-        debug!("retrieved funding history with {} entries", out.len());
+        Ok(serde_json::from_str(body.as_str())?)
+    }
 
-        Ok(out)
+    pub async fn get_user_open_orders(
+        &self,
+        dex: Option<String>,
+    ) -> Result<UserOpenOrdersResponse> {
+        debug!("fetching open orders for user {}", self.user);
+
+        let req = GetUserOpenOrders {
+            request_type: "openOrders".into(),
+            user: self.user.to_string(),
+            dex,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get funding history: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
+    }
+
+    pub async fn get_user_history(&self) -> Result<UserOrderHistoryResponse> {
+        debug!("fetching historicalOrders orders for user {}", self.user);
+
+        let req = GetHistoricalOrders {
+            request_type: "historicalOrders".into(),
+            user: self.user.to_string(),
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get funding history: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
+    }
+
+    pub async fn get_user_fills(&self, aggregate_by_time: bool) -> Result<UserFillsResponse> {
+        debug!("fetching fills for user {}", self.user);
+
+        let req = GetUserFills {
+            request_type: "userFills".into(),
+            user: self.user.to_string(),
+            aggregate_by_time,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get funding history: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
     }
 
     pub async fn update_leverage(&self, a: u32, is_cross: bool, leverage: u32) -> Result<()> {
