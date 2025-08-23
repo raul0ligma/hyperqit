@@ -1,6 +1,6 @@
-use log::{error, info};
 use reqwest::Client;
 use serde::Serialize;
+use tracing::{error, info};
 
 #[derive(Debug, Clone)]
 pub struct NotifierService {

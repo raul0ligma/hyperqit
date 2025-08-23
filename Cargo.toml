@@ -12,11 +12,15 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "strat"
-path = "src/bin/strategy.rs"
+path = "src/bin/dn_strat/main.rs"
 
 [[bin]]
 name = "deployer"
 path = "src/bin/perp_deployer.rs"
+
+[[bin]]
+name = "dex"
+path = "src/bin/perp_dex.rs"
 
 [dependencies]
 alloy = "1.0.9"
@@ -41,3 +45,5 @@ thiserror = "2.0.12"
 tokio = "1.45.1"
 tokio-tungstenite = {version = "0.26.2",features = ["native-tls"] }
 tokio-util = "0.7.15"
+tracing = "0.1.41"
+tracing-subscriber = {version = "0.3.19", features = ["json","env-filter"] }

@@ -1,20 +1,20 @@
 use crate::{
-    Amount, AssetPosition, Balance, HyperliquidClient, PerpMarketInfo, SpotMarketInfo,
-    StrategyStatus, create_unified_market_info,
-    errors::{self, Result},
-    find_market_by_name,
+    AssetPosition, Balance, CmpError, Errors, HyperliquidClient, PerpMarketInfo, Result,
+    SpotMarketInfo, create_unified_market_info, find_market_by_name,
     notifier::NotifierService,
     strategy::{
+        Amount,
         Asset::{self, CommonAsset, WithPerpAndSpot},
-        Position, StrategyState,
+        Position, StrategyState, StrategyStatus,
     },
 };
+
 use std::time::{Duration, SystemTime};
 
-use log::{info, warn};
 use std::result::Result::Ok;
 use tokio::time;
 use tokio_util::sync::CancellationToken;
+use tracing::{info, warn};
 
 pub struct Strategy {
     asset: Asset,
@@ -102,7 +102,7 @@ impl Strategy {
         }
 
         let current_mark_px: f64 = perp_info.mark_px.parse()?;
-        let user_pos = user_state.position.ok_or(errors::Errors::DataError(
+        let user_pos = user_state.position.ok_or(Errors::DataError(
             "user_state".to_owned(),
             "perp_position".to_owned(),
         ))?;
@@ -171,14 +171,14 @@ impl Strategy {
         match &self.asset {
             CommonAsset(key) => {
                 let common_info = find_market_by_name(&unified_info, key.as_str()).ok_or(
-                    errors::Errors::DataError("unified_info".to_owned(), key.to_string()),
+                    Errors::DataError("unified_info".to_owned(), key.to_string()),
                 )?;
                 Ok((
-                    common_info.perp.clone().ok_or(errors::Errors::DataError(
+                    common_info.perp.clone().ok_or(Errors::DataError(
                         "perp_info_from_common".to_owned(),
                         key.to_string(),
                     ))?,
-                    common_info.spot.clone().ok_or(errors::Errors::DataError(
+                    common_info.spot.clone().ok_or(Errors::DataError(
                         "spot_info_from_common".to_owned(),
                         key.to_string(),
                     ))?,
@@ -188,14 +188,14 @@ impl Strategy {
                 let perp_item = unified_info
                     .perp_markets
                     .get(perp_asset_name.as_str())
-                    .ok_or(errors::Errors::DataError(
+                    .ok_or(Errors::DataError(
                         "from_perp_info".to_owned(),
                         perp_asset_name.to_string(),
                     ))?;
                 let spot_item = unified_info
                     .spot_markets
                     .get(spot_asset_name.as_str())
-                    .ok_or(errors::Errors::DataError(
+                    .ok_or(Errors::DataError(
                         "from_spot_info".to_owned(),
                         spot_asset_name.to_string(),
                     ))?;
@@ -243,14 +243,10 @@ impl Strategy {
                 position: None,
             });
         }
-        let perp_pos = current_perp_pos.ok_or(errors::Errors::DataError(
-            "user_perp_pos".to_owned(),
-            perp_key,
-        ))?;
-        let spot_pos = current_spot_pos.ok_or(errors::Errors::DataError(
-            "user_spot_pos".to_owned(),
-            spot_key,
-        ))?;
+        let perp_pos =
+            current_perp_pos.ok_or(Errors::DataError("user_perp_pos".to_owned(), perp_key))?;
+        let spot_pos =
+            current_spot_pos.ok_or(Errors::DataError("user_spot_pos".to_owned(), spot_key))?;
         let perp_price: f64 = perp_info
             .clone()
             .mid_px
@@ -318,20 +314,16 @@ impl Strategy {
                 .clone()
                 .is_some_and(|spot| spot.total.parse::<f64>().unwrap_or(0f64) < self.dust_threshold)
         {
-            return Err(errors::CmpError {
+            return Err(CmpError {
                 expected: StrategyStatus::Active,
                 actual: StrategyStatus::InActive,
             }
             .into());
         }
-        let perp_pos = current_perp_pos.ok_or(errors::Errors::DataError(
-            "user_perp_pos".to_owned(),
-            perp_key,
-        ))?;
-        let spot_pos = current_spot_pos.ok_or(errors::Errors::DataError(
-            "user_spot_pos".to_owned(),
-            spot_key,
-        ))?;
+        let perp_pos =
+            current_perp_pos.ok_or(Errors::DataError("user_perp_pos".to_owned(), perp_key))?;
+        let spot_pos =
+            current_spot_pos.ok_or(Errors::DataError("user_spot_pos".to_owned(), spot_key))?;
         let (perp_info, spot_info) = self.get_market_data().await?;
         let spot_mid: f64 = spot_info
             .mid_px
@@ -355,7 +347,7 @@ impl Strategy {
                 perp_decimals,
             )
             .await
-            .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+            .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
 
         self.executor
             .create_position_with_size(
@@ -369,7 +361,7 @@ impl Strategy {
                 spot_decimals,
             )
             .await
-            .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+            .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
 
         self.notifier.notify_text("exit", "completed").await;
         Ok(())
@@ -378,7 +370,7 @@ impl Strategy {
     pub async fn enter(&self, amount: Amount) -> Result<()> {
         let existing = self.state().await?;
         if existing.status == StrategyStatus::Active {
-            return Err(errors::CmpError {
+            return Err(CmpError {
                 expected: StrategyStatus::InActive,
                 actual: existing.status,
             }
@@ -388,7 +380,7 @@ impl Strategy {
         let (perp_info, spot_info) = self.get_market_data().await?;
         let current_rate: f64 = perp_info.funding.parse()?;
         if current_rate < 0.0 {
-            return Err(errors::Errors::FundRateNegative(current_rate).into());
+            return Err(Errors::FundRateNegative(current_rate).into());
         }
 
         let is_size_usd = matches!(amount, Amount::Usd(_));
@@ -423,7 +415,7 @@ impl Strategy {
                     spot_decimals,
                 )
                 .await
-                .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+                .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
 
             self.executor
                 .create_position_with_size_in_usd(
@@ -437,7 +429,7 @@ impl Strategy {
                     perp_decimals,
                 )
                 .await
-                .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+                .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
         } else {
             self.executor
                 .create_position_with_size(
@@ -451,7 +443,7 @@ impl Strategy {
                     spot_decimals,
                 )
                 .await
-                .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+                .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
 
             self.executor
                 .create_position_with_size(
@@ -465,7 +457,7 @@ impl Strategy {
                     perp_decimals,
                 )
                 .await
-                .map_err(|err| errors::Errors::PlaceOrderError(err.to_string()))?;
+                .map_err(|err| Errors::PlaceOrderError(err.to_string()))?;
         }
         self.notifier.notify_text("enter", "completed").await;
         Ok(())

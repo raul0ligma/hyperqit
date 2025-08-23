@@ -7,6 +7,9 @@ run-strat:
 
 run-deployer:
 	cargo run --bin deployer
+	
+run-dex:
+	cargo run --bin dex
 
 debug:
 	cargo build

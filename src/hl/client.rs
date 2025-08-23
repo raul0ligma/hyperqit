@@ -1,5 +1,5 @@
-use log::{debug, error, info};
 use std::time::SystemTime;
+use tracing::{debug, error, info};
 
 use alloy::primitives::{Address, FixedBytes};
 

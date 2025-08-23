@@ -1,17 +1,36 @@
-use std::sync::Arc;
 use std::time::Duration;
+use std::{env, sync::Arc};
 
 use alloy::primitives::Address;
 use envconfig::Envconfig;
 use hyperqit::*;
-use log::info;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
+
+mod config;
+mod handlers;
+mod notifier;
+mod router;
+mod service;
+mod strategy;
+
+use config::Config;
+use notifier::NotifierService;
+use router::create_router;
+use service::StrategyManagerService;
+use strategy::{Asset, Strategy};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
-    let config = hyperqit::Config::init_from_env().unwrap();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+    let config = Config::init_from_env().unwrap();
     let signer = Signers::Local(hyperqit::LocalWallet::signer(config.private_key));
 
     let user_address: Address = config.user_address.parse().unwrap();

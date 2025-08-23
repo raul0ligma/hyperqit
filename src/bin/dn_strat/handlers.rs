@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 
-use crate::services::{CurrentUserPositionResponse, OpenPositionRequest, StrategyManagerService};
+use crate::service::{CurrentUserPositionResponse, OpenPositionRequest, StrategyManagerService};
 
 #[derive(Deserialize, Serialize)]
 pub struct ResponseJson<T> {

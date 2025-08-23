@@ -1,6 +1,6 @@
-use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::debug;
 
 pub type PerpetualsInfo = (UniverseInfo, Vec<PerpetualMetadata>);
 

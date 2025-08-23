@@ -7,7 +7,7 @@ use axum::{
 
 use crate::{
     handlers::{close_position, create_new_position, get_current_position},
-    services::StrategyManagerService,
+    service::StrategyManagerService,
 };
 
 pub fn create_router(manager_svc: Arc<StrategyManagerService>) -> Router {
