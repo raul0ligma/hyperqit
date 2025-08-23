@@ -70,7 +70,7 @@ async fn main() {
     println!("{:?}", user_info);
 
     let response = executor.cancel_order(69, 1004).await.unwrap();
-    println!("{:?}", response)
+    println!("{:?}", response);
 
     let open_order = executor
         .get_user_open_orders(Some("dex".to_string()))
