@@ -16,8 +16,8 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ExchangeResponse {
-    status: String,
-    response: serde_json::Value,
+    pub status: String,
+    pub response: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

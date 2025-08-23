@@ -17,8 +17,8 @@ use crate::hl::user_info::{
 use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
 use crate::{
-    CancelOrder, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction, SendAssetRequest,
-    Signers,
+    BulkCancel, BulkOrder, CancelOrder, ExchangeOrderResponse, HyperLiquidSigningHash, Order,
+    OrderRequest, PerpDeployAction, SendAssetRequest, Signers,
 };
 
 pub trait HlAgentWallet {
@@ -35,7 +35,7 @@ pub struct HyperliquidClient {
 
 impl HyperliquidClient {
     pub fn new(network: Network, signer: Signers, user: Address) -> Self {
-        info!("creating hyperliquid client for {} on {:?}", user, network);
+        debug!("creating hyperliquid client for {} on {:?}", user, network);
         HyperliquidClient {
             client: reqwest::Client::new(),
             signer,
@@ -79,6 +79,7 @@ impl HyperliquidClient {
 
         let out: FundingHistory = serde_json::from_str(body.as_str())?;
         debug!("retrieved funding history with {} entries", out.len());
+
         Ok(out)
     }
 
@@ -130,7 +131,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("leverage update response: {:?}", out);
-        info!("successfully updated leverage for asset {}", a);
+
         Ok(())
     }
 
@@ -144,8 +145,8 @@ impl HyperliquidClient {
         reduce_only: bool,
         slippage: f64,
         sz_decimals: i32,
-    ) -> Result<()> {
-        info!(
+    ) -> Result<ExchangeOrderResponse> {
+        debug!(
             "creating {} position for asset {} with ${} USD (price: {}, slippage: {}%)",
             if is_buy { "buy" } else { "sell" },
             a,
@@ -163,8 +164,7 @@ impl HyperliquidClient {
             slippage,
         );
 
-        self.create_position(a, is_buy, px, sz, reduce_only).await?;
-        Ok(())
+        self.create_position(a, is_buy, px, sz, reduce_only).await
     }
 
     pub async fn create_position_with_size(
@@ -177,8 +177,8 @@ impl HyperliquidClient {
         reduce_only: bool,
         slippage: f64,
         sz_decimals: i32,
-    ) -> Result<()> {
-        info!(
+    ) -> Result<ExchangeOrderResponse> {
+        debug!(
             "creating {} position for asset {} with size {} (price: {}, slippage: {}%)",
             if is_buy { "buy" } else { "sell" },
             a,
@@ -196,52 +196,7 @@ impl HyperliquidClient {
             slippage,
         );
 
-        self.create_position(a, is_buy, px, sz, reduce_only).await?;
-        Ok(())
-    }
-
-    pub async fn create_position_raw(&self, orders: Vec<OrderRequest>) -> Result<()> {
-        let nonce = self.nonce_manager.get_next_nonce();
-
-        let action: Actions = Actions::Order(crate::BulkOrder {
-            orders: orders,
-            grouping: "na".to_string(),
-        });
-
-        let is_mainnet = self.network == Network::Mainnet;
-        let (to_sign, domain) = generate_action_params(&action, is_mainnet, nonce)?;
-        let hash = to_sign.hyperliquid_signing_hash(&domain);
-        let signature: SignedMessage = self.signer.sign_order(hash).await?;
-
-        let payload = ExchangeRequest {
-            action: serde_json::to_value(action)?,
-            signature,
-            nonce,
-        };
-
-        debug!(
-            "order payload: {}",
-            serde_json::to_string(&payload).unwrap()
-        );
-
-        let resp = self
-            .client
-            .post(format!("{}/exchange", Into::<String>::into(self.network)))
-            .json(&payload)
-            .send()
-            .await?;
-
-        let status_code = resp.status().as_u16();
-        let body = resp.text().await?;
-        if status_code != 200 {
-            error!("failed to create position: {} - {}", status_code, body);
-            return Err(Errors::HyperLiquidApiError(status_code, body).into());
-        }
-
-        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        info!("order response: {:?}", out);
-        info!("successfully placed batch order)");
-        Ok(())
+        self.create_position(a, is_buy, px, sz, reduce_only).await
     }
 
     async fn create_position(
@@ -251,10 +206,8 @@ impl HyperliquidClient {
         px: String,
         sz: String,
         reduce_only: bool,
-    ) -> Result<()> {
-        let nonce = self.nonce_manager.get_next_nonce();
-
-        let action: Actions = Actions::Order(crate::BulkOrder {
+    ) -> Result<ExchangeOrderResponse> {
+        self.create_position_raw(crate::BulkOrder {
             orders: vec![OrderRequest {
                 asset: a,
                 is_buy,
@@ -265,7 +218,14 @@ impl HyperliquidClient {
                 cloid: None,
             }],
             grouping: "na".to_string(),
-        });
+        })
+        .await
+    }
+
+    pub async fn create_position_raw(&self, orders: BulkOrder) -> Result<ExchangeOrderResponse> {
+        let nonce: u64 = self.nonce_manager.get_next_nonce();
+
+        let action: Actions = Actions::Order(orders);
 
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, nonce)?;
@@ -293,24 +253,21 @@ impl HyperliquidClient {
         let status_code = resp.status().as_u16();
         let body = resp.text().await?;
         if status_code != 200 {
-            error!("failed to create position: {} - {}", status_code, body);
+            debug!("failed to create position: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
-        info!("order response: {:?}", out);
-        info!(
-            "successfully placed {} order for asset {} (px: {}, sz: {})",
-            if is_buy { "buy" } else { "sell" },
-            a,
-            px,
-            sz
-        );
-        Ok(())
+        debug!("order response: {:?}", out);
+        if out.status != "ok".to_string() {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
+
+        Ok(serde_json::from_value(out.response)?)
     }
 
     pub async fn transfer_usd_to_spot(&self, amount: u64) -> Result<()> {
-        info!("transferring ${} USD to spot", amount);
+        debug!("transferring ${} USD to spot", amount);
 
         let nonce = self.nonce_manager.get_next_nonce();
 
@@ -325,11 +282,8 @@ impl HyperliquidClient {
         debug!("transfer request: {:?}", transfer_req);
 
         let (to_sign, domain) = generate_transfer_params(&transfer_req)?;
-        debug!("transfer domain: {:?}", domain);
-
         let hash = to_sign.hyperliquid_signing_hash(&domain);
         let signature = self.signer.sign_order(hash).await?;
-
         let payload = ExchangeRequest {
             nonce,
             signature,
@@ -357,12 +311,15 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("transfer response: {:?}", out);
-        info!("successfully transferred ${} USD to spot", amount);
+        if out.status != "ok".to_string() {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
+
         Ok(())
     }
 
     pub async fn send_asset_to_dex(&self, req: SendAssetRequest) -> Result<()> {
-        info!("transferring to dex {}", req.dst_dex.clone());
+        debug!("transferring to dex {}", req.dst_dex.clone());
         let mut transfer_req = req.clone();
         let nonce = self.nonce_manager.get_next_nonce();
         transfer_req.nonce = nonce;
@@ -402,7 +359,10 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("send asset response: {:?}", out);
-        info!("successfully sent asset");
+        if out.status != "ok".to_string() {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
+
         Ok(())
     }
 
@@ -486,7 +446,7 @@ impl HyperliquidClient {
 
         debug!("user spot response: {}", body);
         let out: UserSpotPosition = serde_json::from_str(body.as_str())?;
-        debug!("retrieved spot positions for user {}", self.user);
+
         Ok(out)
     }
 
@@ -514,19 +474,23 @@ impl HyperliquidClient {
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
-        let out: UserPerpPosition = serde_json::from_str(body.as_str())?;
-        debug!("retrieved perp positions for user {}", self.user);
-        Ok(out)
+        Ok(serde_json::from_str(body.as_str())?)
     }
 
-    pub async fn cancel_order(&self, oid: i64, a: u32) -> Result<()> {
-        info!("cancelling order {} for asset {}", oid, a);
+    pub async fn cancel_order(&self, oid: i64, a: u32) -> Result<ExchangeOrderResponse> {
+        debug!("cancelling order {} for asset {}", oid, a);
+
+        self.cancel_order_raw(BulkCancel {
+            cancels: vec![CancelOrder { asset: a, oid }],
+        })
+        .await
+    }
+
+    pub async fn cancel_order_raw(&self, orders: BulkCancel) -> Result<ExchangeOrderResponse> {
+        debug!("cancelling order raw {:?}", orders);
 
         let nonce = self.nonce_manager.get_next_nonce();
-
-        let action: Actions = Actions::Cancel(crate::BulkCancel {
-            cancels: vec![CancelOrder { asset: a, oid }],
-        });
+        let action: Actions = Actions::Cancel(orders);
 
         let is_mainnet = self.network == Network::Mainnet;
         let (to_sign, domain) = generate_action_params(&action, is_mainnet, nonce)?;
@@ -560,8 +524,8 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("cancel order response: {:?}", out);
-        info!("successfully cancelled order {} for asset {}", oid, a);
-        Ok(())
+
+        Ok(serde_json::from_value(out.response)?)
     }
 
     pub async fn perp_deploy_action(&self, deploy_params: PerpDeployAction) -> Result<()> {
@@ -606,6 +570,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("perp deploy action response: {:?}", out);
+
         Ok(())
     }
 }

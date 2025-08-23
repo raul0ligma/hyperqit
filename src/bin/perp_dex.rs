@@ -68,4 +68,7 @@ async fn main() {
         .await
         .unwrap();
     println!("{:?}", user_info);
+
+    let response = executor.cancel_order(69, 1004).await.unwrap();
+    println!("{:?}", response)
 }
