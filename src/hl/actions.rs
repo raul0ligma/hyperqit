@@ -121,6 +121,7 @@ pub enum PerpDeployAction {
     RegisterAsset(RegisterAsset),
     SetFundingMultiplier(SetFundingMultipliers),
     SetOracle(SetOracle),
+    HaltTrading(HaltTrading),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -129,6 +130,13 @@ pub struct SetOracle {
     pub dex: String,
     pub oracle_pxs: Vec<[String; 2]>,
     pub mark_pxs: Vec<Vec<[String; 2]>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct HaltTrading {
+    pub coin: String,
+    pub is_halted: bool,
 }
 
 pub type SetFundingMultipliers = Vec<[String; 2]>;

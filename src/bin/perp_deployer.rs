@@ -68,4 +68,12 @@ async fn main() {
         }))
         .await
         .unwrap();
+
+    executor
+        .perp_deploy_action(PerpDeployAction::HaltTrading(HaltTrading {
+            coin: "dex:TICKER".to_string(),
+            is_halted: false,
+        }))
+        .await
+        .unwrap()
 }
