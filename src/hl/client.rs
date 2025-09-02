@@ -1,12 +1,15 @@
+use anyhow::Ok;
+use async_trait::async_trait;
+use ethers::middleware::signer;
 use std::time::SystemTime;
 use tracing::{debug, error, info};
 
-use alloy::primitives::{Address, FixedBytes};
+use alloy::primitives::{Address, FixedBytes, U256};
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
-    ExchangeRequest, ExchangeResponse, generate_action_params, generate_send_asset_params,
-    generate_transfer_params,
+    ExchangeRequest, ExchangeResponse, generate_action_params,
+    generate_convert_to_multi_sig_params, generate_send_asset_params, generate_transfer_params,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
 use crate::hl::message::SignedMessage;
@@ -17,11 +20,13 @@ use crate::hl::user_info::{
 use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
 use crate::{
-    BulkCancel, BulkOrder, CancelOrder, ExchangeOrderResponse, GetHistoricalOrders, GetUserFills,
-    GetUserOpenOrders, HyperLiquidSigningHash, Order, OrderRequest, PerpDeployAction,
-    SendAssetRequest, Signers, UserFillsResponse, UserOpenOrdersResponse, UserOrderHistoryResponse,
+    BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
+    GetHistoricalOrders, GetUserFills, GetUserOpenOrders, HyperLiquidSigningHash, MultiSigConfig,
+    Order, OrderRequest, PerpDeployAction, SendAssetRequest, Signers, UserFillsResponse,
+    UserOpenOrdersResponse, UserOrderHistoryResponse,
 };
 
+#[async_trait]
 pub trait HlAgentWallet {
     async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage>;
 }
@@ -158,6 +163,117 @@ impl HyperliquidClient {
         let body = resp.text().await?;
         if status_code != 200 {
             error!("failed to get funding history: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
+    }
+
+    pub async fn get_perp_info(&self, dex: Option<String>) -> Result<PerpetualsInfo> {
+        debug!("fetching perpetuals info");
+
+        let payload = GetInfoReq {
+            asset_type: "metaAndAssetCtxs".into(),
+            dex,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get perp info: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: PerpetualsInfo = serde_json::from_str(body.as_str())?;
+        Ok(out)
+    }
+
+    pub async fn get_spot_info(&self, dex: Option<String>) -> Result<SpotResponse> {
+        debug!("fetching spot info");
+
+        let payload = GetInfoReq {
+            asset_type: "spotMetaAndAssetCtxs".into(),
+            dex,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get spot info: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: SpotResponse = serde_json::from_str(body.as_str())?;
+        Ok(out)
+    }
+
+    pub async fn get_user_spot_info(&self, dex: Option<String>) -> Result<UserSpotPosition> {
+        debug!("fetching user spot positions for {}", self.user);
+
+        let payload = GetUserInfoReq {
+            request_type: "spotClearinghouseState".into(),
+            user: self.user.to_string(),
+            dex,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get user spot info: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        debug!("user spot response: {}", body);
+        let out: UserSpotPosition = serde_json::from_str(body.as_str())?;
+
+        Ok(out)
+    }
+
+    pub async fn get_user_perp_info(&self, dex: Option<String>) -> Result<UserPerpPosition> {
+        debug!("fetching user perp positions for {}", self.user);
+
+        let payload = GetUserInfoReq {
+            request_type: "clearinghouseState".into(),
+            user: self.user.to_string(),
+            dex,
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get user perp info: {} - {}", status_code, body);
             return Err(Errors::HyperLiquidApiError(status_code, body).into());
         }
 
@@ -447,117 +563,6 @@ impl HyperliquidClient {
         Ok(())
     }
 
-    pub async fn get_perp_info(&self, dex: Option<String>) -> Result<PerpetualsInfo> {
-        debug!("fetching perpetuals info");
-
-        let payload = GetInfoReq {
-            asset_type: "metaAndAssetCtxs".into(),
-            dex,
-        };
-
-        let resp = self
-            .client
-            .post(format!("{}/info", Into::<String>::into(self.network)))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-
-        let status_code = resp.status().as_u16();
-        let body = resp.text().await?;
-        if status_code != 200 {
-            error!("failed to get perp info: {} - {}", status_code, body);
-            return Err(Errors::HyperLiquidApiError(status_code, body).into());
-        }
-
-        let out: PerpetualsInfo = serde_json::from_str(body.as_str())?;
-        Ok(out)
-    }
-
-    pub async fn get_spot_info(&self, dex: Option<String>) -> Result<SpotResponse> {
-        debug!("fetching spot info");
-
-        let payload = GetInfoReq {
-            asset_type: "spotMetaAndAssetCtxs".into(),
-            dex,
-        };
-
-        let resp = self
-            .client
-            .post(format!("{}/info", Into::<String>::into(self.network)))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-
-        let status_code = resp.status().as_u16();
-        let body = resp.text().await?;
-        if status_code != 200 {
-            error!("failed to get spot info: {} - {}", status_code, body);
-            return Err(Errors::HyperLiquidApiError(status_code, body).into());
-        }
-
-        let out: SpotResponse = serde_json::from_str(body.as_str())?;
-        Ok(out)
-    }
-
-    pub async fn get_user_spot_info(&self, dex: Option<String>) -> Result<UserSpotPosition> {
-        debug!("fetching user spot positions for {}", self.user);
-
-        let payload = GetUserInfoReq {
-            request_type: "spotClearinghouseState".into(),
-            user: self.user.to_string(),
-            dex,
-        };
-
-        let resp = self
-            .client
-            .post(format!("{}/info", Into::<String>::into(self.network)))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-
-        let status_code = resp.status().as_u16();
-        let body = resp.text().await?;
-        if status_code != 200 {
-            error!("failed to get user spot info: {} - {}", status_code, body);
-            return Err(Errors::HyperLiquidApiError(status_code, body).into());
-        }
-
-        debug!("user spot response: {}", body);
-        let out: UserSpotPosition = serde_json::from_str(body.as_str())?;
-
-        Ok(out)
-    }
-
-    pub async fn get_user_perp_info(&self, dex: Option<String>) -> Result<UserPerpPosition> {
-        debug!("fetching user perp positions for {}", self.user);
-
-        let payload = GetUserInfoReq {
-            request_type: "clearinghouseState".into(),
-            user: self.user.to_string(),
-            dex,
-        };
-
-        let resp = self
-            .client
-            .post(format!("{}/info", Into::<String>::into(self.network)))
-            .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
-
-        let status_code = resp.status().as_u16();
-        let body = resp.text().await?;
-        if status_code != 200 {
-            error!("failed to get user perp info: {} - {}", status_code, body);
-            return Err(Errors::HyperLiquidApiError(status_code, body).into());
-        }
-
-        Ok(serde_json::from_str(body.as_str())?)
-    }
-
     pub async fn cancel_order(&self, oid: i64, a: u32) -> Result<ExchangeOrderResponse> {
         debug!("cancelling order {} for asset {}", oid, a);
 
@@ -651,6 +656,65 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("perp deploy action response: {:?}", out);
+
+        Ok(())
+    }
+
+    pub async fn convert_to_multi_sig(
+        &self,
+        sig_chain_id: String,
+        mut signers: Vec<Address>,
+        threshold: u64,
+    ) -> Result<()> {
+        let nonce = self.nonce_manager.get_next_nonce();
+        signers.sort();
+
+        let config_str = serde_json::to_string(&MultiSigConfig {
+            authorized_users: signers.iter().map(|s| s.to_string()).collect(),
+            threshold,
+        })?;
+
+        println!("config {}", config_str);
+
+        let convert_action: ConvertToMultiSigUserRequest = ConvertToMultiSigUserRequest {
+            sig_chain_id: sig_chain_id,
+            chain: self.network.name(),
+            signers: config_str,
+            nonce,
+        };
+
+        let (to_sign, domain) = generate_convert_to_multi_sig_params(&convert_action)?;
+
+        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let signature = self.signer.sign_order(hash).await?;
+
+        let payload = ExchangeRequest {
+            nonce,
+            signature,
+            action: serde_json::to_value(Actions::ConvertToMultiSigUser(convert_action))?,
+        };
+
+        println!("{}", serde_json::to_string(&payload).unwrap());
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to convert to multisig: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("convert to multisig response: {:?}", out);
+        if out.status != "ok".to_string() {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
 
         Ok(())
     }

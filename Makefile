@@ -11,6 +11,9 @@ run-deployer:
 run-dex:
 	cargo run --bin dex
 
+run-multisig:
+	cargo run --bin multisig
+
 debug:
 	cargo build
 

@@ -54,6 +54,7 @@ pub enum Actions {
     UpdateLeverage(UpdateLeverage),
     PerpDeploy(PerpDeployAction),
     SendAsset(SendAssetRequest),
+    ConvertToMultiSigUser(ConvertToMultiSigUserRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -161,4 +162,22 @@ pub struct SendAssetRequest {
     pub from_sub_account: String,
     #[serde(rename = "nonce")]
     pub nonce: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConvertToMultiSigUserRequest {
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
+    #[serde(rename = "signatureChainId")]
+    pub sig_chain_id: String,
+    pub signers: String,
+    pub nonce: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiSigConfig {
+    pub authorized_users: Vec<String>,
+    pub threshold: u64,
 }

@@ -9,7 +9,7 @@ use alloy::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HyperLiquidSigningHash, SendAssetRequest,
+    ConvertToMultiSigUserRequest, HyperLiquidSigningHash, SendAssetRequest,
     errors::{Errors, Result},
     hl::{SignedMessage, TransferRequest},
 };
@@ -48,6 +48,12 @@ sol! {
         uint64 nonce;
     }
 
+    #[derive(Serialize,Debug)]
+    struct ConvertUserToMultiSig {
+        string hyperliquidChain;
+        string signers;
+        uint64 nonce;
+    }
     #[derive(Serialize,Debug)]
     struct Agent {
         string source;
@@ -138,6 +144,30 @@ pub fn generate_send_asset_params(
                 token: req.token.clone(),
                 amount: req.amount.clone(),
                 fromSubAccount: req.from_sub_account.clone(),
+                nonce: req.nonce,
+            }
+        },
+        eip712_domain! {
+            name : "HyperliquidSignTransaction",
+            version : "1",
+            chain_id : chain_id,
+            verifying_contract : address!("0x0000000000000000000000000000000000000000"),
+        },
+    ))
+}
+
+pub fn generate_convert_to_multi_sig_params(
+    req: &ConvertToMultiSigUserRequest,
+) -> Result<(TransferClass<ConvertUserToMultiSig>, Eip712Domain)> {
+    let hex_str = req.sig_chain_id.strip_prefix("0x").unwrap_or(&req.chain);
+    let chain_raw = hex::decode(hex_str)?;
+    let chain_id: u64 = U256::from_be_slice(chain_raw.as_slice()).try_into()?;
+    Ok((
+        TransferClass {
+            type_string: "HyperliquidTransaction:ConvertToMultiSigUser(string hyperliquidChain,string signers,uint64 nonce)".to_owned(),
+            inner: ConvertUserToMultiSig {
+                hyperliquidChain: req.chain.clone(),
+                signers: req.signers.clone(),
                 nonce: req.nonce,
             }
         },
