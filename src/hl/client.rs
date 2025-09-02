@@ -1,10 +1,9 @@
 use anyhow::Ok;
 use async_trait::async_trait;
-use ethers::middleware::signer;
 use std::time::SystemTime;
 use tracing::{debug, error, info};
 
-use alloy::primitives::{Address, FixedBytes, U256};
+use alloy::primitives::{Address, FixedBytes};
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
@@ -456,7 +455,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("order response: {:?}", out);
-        if out.status != "ok".to_string() {
+        if out.status != *"ok" {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }
 
@@ -473,7 +472,7 @@ impl HyperliquidClient {
             sig_chain_id: "0xa4b1".to_string(),
             amount: amount.to_string(),
             to_perp: false,
-            nonce: nonce,
+            nonce,
         };
 
         debug!("transfer request: {:?}", transfer_req);
@@ -508,7 +507,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("transfer response: {:?}", out);
-        if out.status != "ok".to_string() {
+        if out.status != *"ok" {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }
 
@@ -556,7 +555,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("send asset response: {:?}", out);
-        if out.status != "ok".to_string() {
+        if out.status != *"ok" {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }
 
@@ -677,7 +676,7 @@ impl HyperliquidClient {
         println!("config {}", config_str);
 
         let convert_action: ConvertToMultiSigUserRequest = ConvertToMultiSigUserRequest {
-            sig_chain_id: sig_chain_id,
+            sig_chain_id,
             chain: self.network.name(),
             signers: config_str,
             nonce,
@@ -712,7 +711,7 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("convert to multisig response: {:?}", out);
-        if out.status != "ok".to_string() {
+        if out.status != *"ok" {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }
 

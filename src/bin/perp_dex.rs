@@ -42,7 +42,7 @@ async fn main() {
 
     let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
-    let _ = executor
+    executor
         .send_asset_to_dex(SendAssetRequest {
             chain: Network::Testnet.name(),
             sig_chain_id: "0xa4b1".to_string(),

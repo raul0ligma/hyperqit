@@ -5,7 +5,6 @@ use alloy::{
     sol_types::Eip712Domain,
 };
 use anyhow::Ok;
-use qrcode::{QrCode, render::unicode};
 
 pub trait HyperLiquidSigningHash {
     fn hyperliquid_signing_hash(&self, domain: &Eip712Domain) -> FixedBytes<32>;

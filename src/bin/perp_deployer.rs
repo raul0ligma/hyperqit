@@ -45,7 +45,7 @@ async fn main() {
     let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
     let sz_decimals = 0;
-    let resp = executor
+    executor
         .perp_deploy_action(PerpDeployAction::RegisterAsset(RegisterAsset {
             max_gas: None,
             asset_request: RegisterAssetRequest {

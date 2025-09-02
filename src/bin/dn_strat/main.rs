@@ -1,5 +1,5 @@
 use std::time::Duration;
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
 use alloy::primitives::Address;
 use envconfig::Envconfig;

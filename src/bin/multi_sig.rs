@@ -43,7 +43,7 @@ async fn main() {
 
     let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
-    let _ = executor
+    executor
         .convert_to_multi_sig("0x01".to_string(), vec![user_a_addr, user_b_addr], 2)
         .await
         .unwrap();

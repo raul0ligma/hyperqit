@@ -45,8 +45,7 @@ mod test {
 
     #[test]
     fn test_all_exchange_responses() {
-        let test_cases = vec![
-            r#"{
+        let test_cases = [r#"{
                "status":"ok",
                "response":{
                   "type":"order",
@@ -115,8 +114,7 @@ mod test {
                   }
                }
             }"#,
-            r#"{"status": "ok", "response": {"type": "default"}}"#,
-        ];
+            r#"{"status": "ok", "response": {"type": "default"}}"#];
 
         for (i, json_str) in test_cases.iter().enumerate() {
             println!("test case {}", i + 1,);
