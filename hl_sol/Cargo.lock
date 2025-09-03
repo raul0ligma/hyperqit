@@ -1624,8 +1624,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "hl_types_derive"
-version = "0.1.0"
+name = "hl_sol"
+version = "0.0.1"
 dependencies = [
  "alloy",
  "heck",

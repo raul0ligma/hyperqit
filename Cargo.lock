@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "hl_sol"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "alloy",
  "heck",
@@ -2935,7 +2935,7 @@ dependencies = [
 
 [[package]]
 name = "hyperqit"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "alloy",
  "anyhow",

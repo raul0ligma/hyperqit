@@ -1,6 +1,6 @@
 [package]
 name = "hyperqit"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2024"
 description = "rust sdk for interacting with hyperliquid"
 license = "MIT" 
@@ -56,5 +56,5 @@ tokio-tungstenite = {version = "0.26.2",features = ["native-tls"] }
 tokio-util = "0.7.15"
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.19", features = ["json","env-filter"] }
-hl_sol  = { path = "./hl_sol" }
+hl_sol  = { version = "0.0.1", path = "./hl_sol" }
 
