@@ -7,8 +7,9 @@ use alloy::primitives::{Address, FixedBytes};
 
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
-    ExchangeRequest, ExchangeResponse, generate_action_params,
-    generate_convert_to_multi_sig_params, generate_send_asset_params, generate_transfer_params,
+    CONVERT_TO_MULTI_SIG_USER_TYPE, ConvertToMultiSigUser, ExchangeRequest, ExchangeResponse,
+    SEND_ASSET_TYPE, SendAsset, USD_CLASS_TRANSFER_TYPE, UsdClassTransfer, generate_action_params,
+    hyperliquid_signing_hash_with_default_domain,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
 use crate::hl::message::SignedMessage;
@@ -462,23 +463,39 @@ impl HyperliquidClient {
         Ok(serde_json::from_value(out.response)?)
     }
 
-    pub async fn transfer_usd_to_spot(&self, amount: u64) -> Result<()> {
+    pub async fn transfer_usd(
+        &self,
+        amount: u64,
+        to_perp: bool,
+        sig_chain_id: String,
+    ) -> Result<()> {
         debug!("transferring ${} USD to spot", amount);
 
         let nonce = self.nonce_manager.get_next_nonce();
 
         let transfer_req = TransferRequest {
             chain: self.network.name(),
-            sig_chain_id: "0xa4b1".to_string(),
+            sig_chain_id: sig_chain_id,
             amount: amount.to_string(),
-            to_perp: false,
+            to_perp: to_perp,
             nonce,
         };
 
+        let sig_chain_id_u64 = parse_chain_id(&transfer_req.sig_chain_id)?;
+
         debug!("transfer request: {:?}", transfer_req);
 
-        let (to_sign, domain) = generate_transfer_params(&transfer_req)?;
-        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        let hash = hyperliquid_signing_hash_with_default_domain(
+            USD_CLASS_TRANSFER_TYPE.to_owned(),
+            UsdClassTransfer {
+                hyperliquidChain: transfer_req.chain.clone(),
+                amount: transfer_req.amount.clone(),
+                toPerp: transfer_req.to_perp,
+                nonce: nonce,
+            },
+            sig_chain_id_u64,
+        );
+
         let signature = self.signer.sign_order(hash).await?;
         let payload = ExchangeRequest {
             nonce,
@@ -520,12 +537,26 @@ impl HyperliquidClient {
         let nonce = self.nonce_manager.get_next_nonce();
         transfer_req.nonce = nonce;
 
+        let sig_chain_id_u64 = parse_chain_id(&transfer_req.sig_chain_id)?;
+
         debug!("send asset request: {:?}", transfer_req);
 
-        let (to_sign, domain) = generate_send_asset_params(&transfer_req)?;
-        debug!("transfer domain: {:?}", domain);
+        let hash = hyperliquid_signing_hash_with_default_domain(
+            SEND_ASSET_TYPE.to_owned(),
+            SendAsset {
+                hyperliquidChain: transfer_req.chain.clone(),
+                destination: transfer_req.destination.clone(),
+                sourceDex: transfer_req.source_dex.clone(),
+                destinationDex: transfer_req.dst_dex.clone(),
+                token: transfer_req.token.clone(),
+                amount: transfer_req.amount.clone(),
+                fromSubAccount: transfer_req.from_sub_account.clone(),
+                nonce: nonce,
+            },
+            sig_chain_id_u64,
+        );
 
-        let hash = to_sign.hyperliquid_signing_hash(&domain);
+        debug!("transfer hash: {:?}", hash);
         let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
@@ -668,12 +699,11 @@ impl HyperliquidClient {
         let nonce = self.nonce_manager.get_next_nonce();
         signers.sort();
 
+        let sig_chain_id_u64 = parse_chain_id(&sig_chain_id)?;
         let config_str = serde_json::to_string(&MultiSigConfig {
             authorized_users: signers.iter().map(|s| s.to_string()).collect(),
             threshold,
         })?;
-
-        println!("config {}", config_str);
 
         let convert_action: ConvertToMultiSigUserRequest = ConvertToMultiSigUserRequest {
             sig_chain_id,
@@ -682,9 +712,16 @@ impl HyperliquidClient {
             nonce,
         };
 
-        let (to_sign, domain) = generate_convert_to_multi_sig_params(&convert_action)?;
+        let hash = hyperliquid_signing_hash_with_default_domain(
+            CONVERT_TO_MULTI_SIG_USER_TYPE.to_owned(),
+            ConvertToMultiSigUser {
+                hyperliquidChain: convert_action.chain.clone(),
+                signers: convert_action.signers.clone(),
+                nonce,
+            },
+            sig_chain_id_u64,
+        );
 
-        let hash = to_sign.hyperliquid_signing_hash(&domain);
         let signature = self.signer.sign_order(hash).await?;
 
         let payload = ExchangeRequest {
@@ -692,8 +729,6 @@ impl HyperliquidClient {
             signature,
             action: serde_json::to_value(Actions::ConvertToMultiSigUser(convert_action))?,
         };
-
-        println!("{}", serde_json::to_string(&payload).unwrap());
 
         let resp = self
             .client

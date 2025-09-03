@@ -2,14 +2,16 @@ use alloy::{
     dyn_abi::Eip712Domain,
     hex::hex,
     primitives::{FixedBytes, U256, address, keccak256},
-    sol,
+    sol as alloy_sol,
     sol_types::{SolStruct, eip712_domain},
 };
+
+use hl_sol::sol;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ConvertToMultiSigUserRequest, HyperLiquidSigningHash, SendAssetRequest,
+    HyperLiquidSigningHash,
     errors::{Errors, Result},
     hl::{SignedMessage, TransferRequest},
 };
@@ -28,33 +30,43 @@ pub(crate) struct ExchangeRequest {
 }
 
 sol! {
+    #[multisig]
     #[derive(Serialize)]
     struct UsdClassTransfer {
-        string hyperliquidChain;
-        string amount;
-        bool toPerp;
-        uint64 nonce;
+        hyperliquidChain: string,
+        amount: string,
+        toPerp: bool,
+        nonce: uint64
     }
+}
 
+sol! {
+    #[multisig]
     #[derive(Serialize)]
     struct SendAsset {
-        string hyperliquidChain;
-        string destination;
-        string sourceDex;
-        string destinationDex;
-        string token;
-        string amount;
-        string fromSubAccount;
-        uint64 nonce;
+        hyperliquidChain: string,
+        destination: string,
+        sourceDex: string,
+        destinationDex: string,
+        token: string,
+        amount: string,
+        fromSubAccount: string,
+        nonce: uint64
     }
+}
 
-    #[derive(Serialize,Debug)]
-    struct ConvertUserToMultiSig {
-        string hyperliquidChain;
-        string signers;
-        uint64 nonce;
+sol! {
+    #[multisig]
+    #[derive(Serialize, Debug)]
+    struct ConvertToMultiSigUser {
+        hyperliquidChain: string,
+        signers: string,
+        nonce: uint64
     }
-    #[derive(Serialize,Debug)]
+}
+
+alloy_sol! {
+    #[derive(Serialize, Debug)]
     struct Agent {
         string source;
         bytes32 connectionId;
@@ -67,117 +79,41 @@ impl HyperLiquidSigningHash for Agent {
     }
 }
 
-#[derive(Clone)]
-pub struct TransferClass<S>
-where
-    S: SolStruct,
-{
-    pub(crate) inner: S,
-    type_string: String,
+pub fn hyperliquid_signing_hash<S: SolStruct>(
+    type_str: String,
+    data: S,
+    domain: &Eip712Domain,
+) -> FixedBytes<32> {
+    let type_hash = keccak256(type_str.as_bytes());
+
+    let encoded_data = data.eip712_encode_data();
+
+    let mut struct_hash_input = Vec::new();
+    struct_hash_input.extend_from_slice(type_hash.as_slice());
+    struct_hash_input.extend_from_slice(&encoded_data);
+    let struct_hash: FixedBytes<32> = keccak256(&struct_hash_input);
+
+    let mut signing_input = [0u8; 2 + 32 + 32];
+    signing_input[0] = 0x19;
+    signing_input[1] = 0x01;
+    signing_input[2..34].copy_from_slice(domain.hash_struct().as_slice());
+    signing_input[34..66].copy_from_slice(struct_hash.as_slice());
+
+    keccak256(signing_input)
 }
 
-impl<S> HyperLiquidSigningHash for TransferClass<S>
-where
-    S: SolStruct,
-{
-    fn hyperliquid_signing_hash(&self, domain: &Eip712Domain) -> FixedBytes<32> {
-        let type_hash = keccak256(self.type_string.as_bytes());
-
-        let encoded_data = self.inner.eip712_encode_data();
-
-        let mut struct_hash_input = Vec::new();
-        struct_hash_input.extend_from_slice(type_hash.as_slice());
-        struct_hash_input.extend_from_slice(&encoded_data);
-        let struct_hash: FixedBytes<32> = keccak256(&struct_hash_input);
-
-        let mut signing_input = [0u8; 2 + 32 + 32];
-        signing_input[0] = 0x19;
-        signing_input[1] = 0x01;
-        signing_input[2..34].copy_from_slice(domain.hash_struct().as_slice());
-        signing_input[34..66].copy_from_slice(struct_hash.as_slice());
-
-        keccak256(signing_input)
-    }
-}
-
-pub fn generate_transfer_params(
-    req: &TransferRequest,
-) -> Result<(TransferClass<UsdClassTransfer>, Eip712Domain)> {
-    let hex_str = req.sig_chain_id.strip_prefix("0x").unwrap_or(&req.chain);
-    let chain_raw = hex::decode(hex_str)?;
-    let chain_id: u64 = U256::from_be_slice(chain_raw.as_slice()).try_into()?;
-
-    Ok((
-        TransferClass {
-            type_string: "HyperliquidTransaction:UsdClassTransfer(string hyperliquidChain,string amount,bool toPerp,uint64 nonce)".to_owned(),
-            inner: UsdClassTransfer {
-                hyperliquidChain: req.chain.clone(),
-                amount: req.amount.clone(),
-                toPerp: req.to_perp,
-                nonce: req.nonce,
-            },
-        },
-        eip712_domain! {
-            name : "HyperliquidSignTransaction",
-            version : "1",
-            chain_id : chain_id,
-            verifying_contract : address!("0x0000000000000000000000000000000000000000"),
-        },
-    ))
-}
-
-pub fn generate_send_asset_params(
-    req: &SendAssetRequest,
-) -> Result<(TransferClass<SendAsset>, Eip712Domain)> {
-    let hex_str = req.sig_chain_id.strip_prefix("0x").unwrap_or(&req.chain);
-    let chain_raw = hex::decode(hex_str)?;
-    let chain_id: u64 = U256::from_be_slice(chain_raw.as_slice()).try_into()?;
-
-    Ok((
-        TransferClass {
-            type_string: "HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)".to_owned(),
-            inner: SendAsset {
-                hyperliquidChain: req.chain.clone(),
-                destination:req.destination.clone(),
-                sourceDex: req.source_dex.clone(),
-                destinationDex: req.dst_dex.clone(),
-                token: req.token.clone(),
-                amount: req.amount.clone(),
-                fromSubAccount: req.from_sub_account.clone(),
-                nonce: req.nonce,
-            }
-        },
-        eip712_domain! {
-            name : "HyperliquidSignTransaction",
-            version : "1",
-            chain_id : chain_id,
-            verifying_contract : address!("0x0000000000000000000000000000000000000000"),
-        },
-    ))
-}
-
-pub fn generate_convert_to_multi_sig_params(
-    req: &ConvertToMultiSigUserRequest,
-) -> Result<(TransferClass<ConvertUserToMultiSig>, Eip712Domain)> {
-    let hex_str = req.sig_chain_id.strip_prefix("0x").unwrap_or(&req.chain);
-    let chain_raw = hex::decode(hex_str)?;
-    let chain_id: u64 = U256::from_be_slice(chain_raw.as_slice()).try_into()?;
-    Ok((
-        TransferClass {
-            type_string: "HyperliquidTransaction:ConvertToMultiSigUser(string hyperliquidChain,string signers,uint64 nonce)".to_owned(),
-            inner: ConvertUserToMultiSig {
-                hyperliquidChain: req.chain.clone(),
-                signers: req.signers.clone(),
-                nonce: req.nonce,
-            }
-        },
-        eip712_domain! {
-            name : "HyperliquidSignTransaction",
-            version : "1",
-            chain_id : chain_id,
-            verifying_contract : address!("0x0000000000000000000000000000000000000000"),
-        },
-    ))
+pub fn hyperliquid_signing_hash_with_default_domain<S: SolStruct>(
+    type_str: String,
+    data: S,
+    sig_chain: u64,
+) -> FixedBytes<32> {
+    let domain = eip712_domain! {
+        name : "HyperliquidSignTransaction",
+        version : "1",
+        chain_id : sig_chain,
+        verifying_contract : address!("0x0000000000000000000000000000000000000000"),
+    };
+    hyperliquid_signing_hash(type_str, data, &domain)
 }
 
 pub fn generate_action_params(

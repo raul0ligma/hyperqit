@@ -14,6 +14,9 @@ run-dex:
 run-multisig:
 	cargo run --bin multisig
 
+run-transfer:
+	cargo run --bin transfer
+
 debug:
 	cargo build
 

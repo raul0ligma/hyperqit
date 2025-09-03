@@ -27,8 +27,8 @@ name = "multisig"
 path = "src/bin/multi_sig.rs"
 
 [[bin]]
-name = "test-macro"
-path = "src/bin/test_macro.rs"
+name = "transfer"
+path = "src/bin/transfer.rs"
 
 [dependencies]
 alloy = "1.0.9"
