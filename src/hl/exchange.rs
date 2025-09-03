@@ -11,9 +11,10 @@ use hl_sol::sol;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    HyperLiquidSigningHash,
+    HyperLiquidSigningHash, MultiSigRequest, Network,
     errors::{Errors, Result},
-    hl::{SignedMessage, TransferRequest},
+    hl::SignedMessage,
+    parse_chain_id,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +52,26 @@ sol! {
         token: string,
         amount: string,
         fromSubAccount: string,
+        nonce: uint64
+    }
+}
+
+sol! {
+    #[multisig]
+    #[derive(Serialize)]
+    struct UsdSend {
+        hyperliquidChain: string,
+        destination: string,
+        amount: string,
+        time: uint64
+    }
+}
+
+sol! {
+    #[derive(Serialize)]
+    struct SendMultiSig {
+        hyperliquidChain: string,
+        multiSigActionHash: bytes32,
         nonce: uint64
     }
 }
@@ -114,6 +135,30 @@ pub fn hyperliquid_signing_hash_with_default_domain<S: SolStruct>(
         verifying_contract : address!("0x0000000000000000000000000000000000000000"),
     };
     hyperliquid_signing_hash(type_str, data, &domain)
+}
+
+pub fn generate_multi_sig_hash(
+    payload: MultiSigRequest,
+    chain: Network,
+    nonce: u64,
+) -> Result<FixedBytes<32>> {
+    let sig_chain_id_u64 = parse_chain_id(&payload.sig_chain_id)?;
+    let out = serde_json::to_string(&payload)?;
+    let mut bytes =
+        rmp_serde::to_vec_named(&payload).map_err(|e| Errors::AgentSignature(e.to_string()))?;
+    bytes.extend(nonce.to_be_bytes());
+    bytes.push(0);
+    let out: FixedBytes<32> = keccak256(bytes.clone());
+
+    Ok(hyperliquid_signing_hash_with_default_domain(
+        SEND_MULTI_SIG_TYPE.to_owned(),
+        SendMultiSig {
+            hyperliquidChain: chain.name(),
+            multiSigActionHash: out,
+            nonce,
+        },
+        sig_chain_id_u64,
+    ))
 }
 
 pub fn generate_action_params(

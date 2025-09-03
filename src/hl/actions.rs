@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::{SignedMessage, SignedMessageHex};
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
@@ -32,10 +34,10 @@ pub enum Order {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TransferRequest {
-    #[serde(rename = "hyperliquidChain")]
-    pub chain: String,
     #[serde(rename = "signatureChainId")]
     pub sig_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
     #[serde(rename = "amount")]
     pub amount: String,
     #[serde(rename = "toPerp")]
@@ -50,11 +52,13 @@ pub struct TransferRequest {
 pub enum Actions {
     Order(BulkOrder),
     UsdClassTransfer(TransferRequest),
+    UsdSend(UsdSendRequest),
     Cancel(BulkCancel),
     UpdateLeverage(UpdateLeverage),
     PerpDeploy(PerpDeployAction),
     SendAsset(SendAssetRequest),
     ConvertToMultiSigUser(ConvertToMultiSigUserRequest),
+    MultiSig(MultiSigRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -144,20 +148,20 @@ pub type SetFundingMultipliers = Vec<[String; 2]>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SendAssetRequest {
-    #[serde(rename = "hyperliquidChain")]
-    pub chain: String,
     #[serde(rename = "signatureChainId")]
     pub sig_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
     #[serde(rename = "destination")]
     pub destination: String,
     #[serde(rename = "sourceDex")]
     pub source_dex: String,
     #[serde(rename = "destinationDex")]
     pub dst_dex: String,
-    #[serde(rename = "amount")]
-    pub amount: String,
     #[serde(rename = "token")]
     pub token: String,
+    #[serde(rename = "amount")]
+    pub amount: String,
     #[serde(rename = "fromSubAccount")]
     pub from_sub_account: String,
     #[serde(rename = "nonce")]
@@ -167,10 +171,10 @@ pub struct SendAssetRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ConvertToMultiSigUserRequest {
-    #[serde(rename = "hyperliquidChain")]
-    pub chain: String,
     #[serde(rename = "signatureChainId")]
     pub sig_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
     pub signers: String,
     pub nonce: u64,
 }
@@ -180,4 +184,33 @@ pub struct ConvertToMultiSigUserRequest {
 pub struct MultiSigConfig {
     pub authorized_users: Vec<String>,
     pub threshold: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UsdSendRequest {
+    #[serde(rename = "signatureChainId")]
+    pub sig_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
+    pub destination: String,
+    pub amount: String,
+    pub time: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiSigRequest {
+    #[serde(rename = "signatureChainId")]
+    pub sig_chain_id: String,
+    pub signatures: Vec<SignedMessageHex>,
+    pub payload: MultiSigPayload,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiSigPayload {
+    pub multi_sig_user: String,
+    pub outer_signer: String,
+    pub action: Box<Actions>,
 }

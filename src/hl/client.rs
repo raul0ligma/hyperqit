@@ -8,7 +8,9 @@ use alloy::primitives::{Address, FixedBytes};
 use crate::errors::{Errors, Result};
 use crate::hl::exchange::{
     CONVERT_TO_MULTI_SIG_USER_TYPE, ConvertToMultiSigUser, ExchangeRequest, ExchangeResponse,
-    SEND_ASSET_TYPE, SendAsset, USD_CLASS_TRANSFER_TYPE, UsdClassTransfer, generate_action_params,
+    MultiSigSendAsset, MultiSigUsdClassTransfer, MultiSigUsdSend, SEND_ASSET_MULTISIG_TYPE,
+    SEND_ASSET_TYPE, SendAsset, USD_CLASS_TRANSFER_MULTISIG_TYPE, USD_CLASS_TRANSFER_TYPE,
+    USD_SEND_MULTISIG_TYPE, UsdClassTransfer, generate_action_params, generate_multi_sig_hash,
     hyperliquid_signing_hash_with_default_domain,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
@@ -21,9 +23,10 @@ use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
 use crate::{
     BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
-    GetHistoricalOrders, GetUserFills, GetUserOpenOrders, HyperLiquidSigningHash, MultiSigConfig,
-    Order, OrderRequest, PerpDeployAction, SendAssetRequest, Signers, UserFillsResponse,
-    UserOpenOrdersResponse, UserOrderHistoryResponse,
+    GetHistoricalOrders, GetUserFills, GetUserOpenOrders, HyperLiquidSigningHash, LocalWallet,
+    MultiSigConfig, MultiSigRequest, Order, OrderRequest, PerpDeployAction, SendAssetRequest,
+    SignedMessageHex, Signers, UsdSendRequest, UserFillsResponse, UserOpenOrdersResponse,
+    UserOrderHistoryResponse,
 };
 
 #[async_trait]
@@ -485,7 +488,7 @@ impl HyperliquidClient {
 
         debug!("transfer request: {:?}", transfer_req);
 
-        let hash = hyperliquid_signing_hash_with_default_domain(
+        let hash: FixedBytes<32> = hyperliquid_signing_hash_with_default_domain(
             USD_CLASS_TRANSFER_TYPE.to_owned(),
             UsdClassTransfer {
                 hyperliquidChain: transfer_req.chain.clone(),
@@ -541,7 +544,7 @@ impl HyperliquidClient {
 
         debug!("send asset request: {:?}", transfer_req);
 
-        let hash = hyperliquid_signing_hash_with_default_domain(
+        let hash: FixedBytes<32> = hyperliquid_signing_hash_with_default_domain(
             SEND_ASSET_TYPE.to_owned(),
             SendAsset {
                 hyperliquidChain: transfer_req.chain.clone(),
@@ -746,6 +749,132 @@ impl HyperliquidClient {
 
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("convert to multisig response: {:?}", out);
+        if out.status != *"ok" {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
+
+        Ok(())
+    }
+
+    pub async fn multi_sig_usd_send(
+        &self,
+        amount: u64,
+        dst: Address,
+        sig_chain_id: String,
+        other_signers: Vec<Signers>,
+        multi_sig_user: Address,
+    ) -> Result<()> {
+        debug!("transferring ${} USD to spot", amount);
+        let nonce = self.nonce_manager.get_next_nonce();
+
+        let transfer_req = TransferRequest {
+            chain: self.network.name(),
+            sig_chain_id: sig_chain_id.clone(),
+            amount: amount.to_string(),
+            to_perp: false,
+            nonce,
+        };
+
+        //   action = {
+        //     "type": "sendAsset",
+        //     "destination": destination,
+        //     "sourceDex": source_dex,
+        //     "destinationDex": destination_dex,
+        //     "token": token,
+        //     "amount": str_amount,
+        //     "fromSubAccount": self.vault_address if self.vault_address else "",
+        //     "nonce": timestamp,
+        // }
+        // let transfer_req = SendAssetRequest {
+        //     chain: self.network.name(),
+        //     sig_chain_id: sig_chain_id.clone(),
+        //     destination: multi_sig_user.to_string(),
+        //     source_dex: "".to_string(),
+        //     dst_dex: "dex".to_string(),
+        //     amount: "2".to_string(),
+        //     token: "USDC".to_string(),
+        //     from_sub_account: "".to_string(),
+        //     nonce: nonce,
+        // };
+
+        let sig_chain_id_u64 = parse_chain_id(&transfer_req.sig_chain_id)?;
+
+        debug!("transfer request: {:?}", transfer_req);
+
+        // let transfer_data = MultiSigSendAsset {
+        //     hyperliquidChain: transfer_req.chain.clone(),
+        //     payloadMultiSigUser: multi_sig_user,
+        //     outerSigner: self.user,
+        //     nonce,
+        //     destination: multi_sig_user.to_string(),
+        //     sourceDex: "".to_string(),
+        //     destinationDex: "hybet".to_string(),
+        //     token: "USDC".to_string(),
+        //     amount: "2".to_string(),
+        //     fromSubAccount: "".to_string(),
+        // };
+        let transfer_data = MultiSigUsdClassTransfer {
+            hyperliquidChain: transfer_req.chain.clone(),
+            payloadMultiSigUser: multi_sig_user,
+            outerSigner: self.user,
+            amount: amount.to_string(),
+            toPerp: false,
+            nonce,
+        };
+        let hash = hyperliquid_signing_hash_with_default_domain(
+            USD_CLASS_TRANSFER_MULTISIG_TYPE.to_owned(),
+            transfer_data.clone(),
+            sig_chain_id_u64,
+        );
+
+        let leader_signature = self.signer.sign_order(hash).await?;
+        let mut signatures: Vec<SignedMessageHex> = vec![leader_signature.into()];
+
+        for other in other_signers {
+            let other_sig = other.sign_order(hash).await?;
+            signatures.push(other_sig.into());
+        }
+
+        let multi_sig_payload = MultiSigRequest {
+            sig_chain_id,
+            signatures,
+            payload: crate::MultiSigPayload {
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: self.user.to_string().to_lowercase(),
+                action: Box::new(Actions::UsdClassTransfer(transfer_req)),
+            },
+        };
+
+        let sig_hash = generate_multi_sig_hash(multi_sig_payload.clone(), self.network, nonce)?;
+        let leader_outer_signature = self.signer.sign_order(sig_hash).await?;
+
+        let payload = ExchangeRequest {
+            nonce,
+            signature: leader_outer_signature,
+            action: serde_json::to_value(Actions::MultiSig(multi_sig_payload))?,
+        };
+
+        debug!(
+            "transfer payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to transfer USD: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("transfer response: {:?}", out);
         if out.status != *"ok" {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use envconfig::Envconfig;
 use hyperqit::*;
@@ -24,7 +26,6 @@ pub struct Config {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .json()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
@@ -41,10 +42,26 @@ async fn main() {
 
     let user_address: Address = config.user_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
+    let executor = crate::HyperliquidClient::new(
+        Network::Testnet,
+        hyperqit::Signers::Local(user_b),
+        user_b_addr,
+    );
+
+    // executor
+    //     .convert_to_multi_sig("0x01".to_string(), vec![user_a_addr, user_b_addr], 2)
+    //     .await
+    //     .unwrap();
+    let multi_sig_user = Address::from_str("0x").unwrap();
 
     executor
-        .convert_to_multi_sig("0x01".to_string(), vec![user_a_addr, user_b_addr], 2)
+        .multi_sig_usd_send(
+            2,
+            Address::from_str("0x").unwrap(),
+            "0x66eee".to_string(),
+            vec![hyperqit::Signers::Local(user_a)],
+            multi_sig_user,
+        )
         .await
-        .unwrap();
+        .unwrap()
 }
