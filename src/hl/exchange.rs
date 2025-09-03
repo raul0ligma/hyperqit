@@ -8,10 +8,12 @@ use alloy::{
 
 use hl_sol::sol;
 
+use reqwest::redirect::Action;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{
-    HyperLiquidSigningHash, MultiSigRequest, Network,
+    Actions, HyperLiquidSigningHash, MultiSigRequest, Network,
     errors::{Errors, Result},
     hl::SignedMessage,
     parse_chain_id,
@@ -143,13 +145,12 @@ pub fn generate_multi_sig_hash(
     nonce: u64,
 ) -> Result<FixedBytes<32>> {
     let sig_chain_id_u64 = parse_chain_id(&payload.sig_chain_id)?;
-    let out = serde_json::to_string(&payload)?;
     let mut bytes =
         rmp_serde::to_vec_named(&payload).map_err(|e| Errors::AgentSignature(e.to_string()))?;
     bytes.extend(nonce.to_be_bytes());
     bytes.push(0);
-    let out: FixedBytes<32> = keccak256(bytes.clone());
 
+    let out: FixedBytes<32> = keccak256(bytes.clone());
     Ok(hyperliquid_signing_hash_with_default_domain(
         SEND_MULTI_SIG_TYPE.to_owned(),
         SendMultiSig {
@@ -159,6 +160,41 @@ pub fn generate_multi_sig_hash(
         },
         sig_chain_id_u64,
     ))
+}
+
+pub fn generate_multi_sig_l1_hash(
+    action: &crate::Actions,
+    payload_multi_sig_user: String,
+    outer_signer: String,
+    is_mainnet: bool,
+    nonce: u64,
+) -> Result<FixedBytes<32>> {
+    let envelope = vec![
+        serde_json::Value::String(payload_multi_sig_user.to_lowercase()),
+        serde_json::Value::String(outer_signer.to_lowercase()),
+        serde_json::to_value(action)?, // Convert action to Value
+    ];
+
+    let mut bytes =
+        rmp_serde::to_vec(&envelope).map_err(|e| Errors::AgentSignature(e.to_string()))?;
+
+    bytes.extend(nonce.to_be_bytes());
+    bytes.push(0);
+    let out: FixedBytes<32> = keccak256(bytes.clone());
+    let source = if is_mainnet { "a" } else { "b" }.to_string();
+    let data = Agent {
+        source,
+        connectionId: out,
+    };
+
+    let domain = eip712_domain! {
+        name: "Exchange",
+        version: "1",
+        chain_id: 1337,
+        verifying_contract: address!("0x0000000000000000000000000000000000000000"),
+    };
+
+    Ok(data.eip712_signing_hash(&domain))
 }
 
 pub fn generate_action_params(

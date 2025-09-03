@@ -55,13 +55,15 @@ async fn main() {
     let multi_sig_user = Address::from_str("0x").unwrap();
 
     executor
-        .multi_sig_usd_send(
-            2,
-            Address::from_str("0x").unwrap(),
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::HaltTrading(HaltTrading {
+                coin: "dex:COIN".to_string(),
+                is_halted: true,
+            })),
             "0x66eee".to_string(),
             vec![hyperqit::Signers::Local(user_a)],
             multi_sig_user,
         )
         .await
-        .unwrap()
+        .unwrap();
 }

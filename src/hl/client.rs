@@ -1,5 +1,6 @@
 use anyhow::Ok;
 use async_trait::async_trait;
+
 use std::time::SystemTime;
 use tracing::{debug, error, info};
 
@@ -11,7 +12,7 @@ use crate::hl::exchange::{
     MultiSigSendAsset, MultiSigUsdClassTransfer, MultiSigUsdSend, SEND_ASSET_MULTISIG_TYPE,
     SEND_ASSET_TYPE, SendAsset, USD_CLASS_TRANSFER_MULTISIG_TYPE, USD_CLASS_TRANSFER_TYPE,
     USD_SEND_MULTISIG_TYPE, UsdClassTransfer, generate_action_params, generate_multi_sig_hash,
-    hyperliquid_signing_hash_with_default_domain,
+    generate_multi_sig_l1_hash, hyperliquid_signing_hash_with_default_domain,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
 use crate::hl::message::SignedMessage;
@@ -24,9 +25,9 @@ use crate::hl::{Actions, TransferRequest};
 use crate::{
     BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
     GetHistoricalOrders, GetUserFills, GetUserOpenOrders, HyperLiquidSigningHash, LocalWallet,
-    MultiSigConfig, MultiSigRequest, Order, OrderRequest, PerpDeployAction, SendAssetRequest,
-    SignedMessageHex, Signers, UsdSendRequest, UserFillsResponse, UserOpenOrdersResponse,
-    UserOrderHistoryResponse,
+    MultiSigConfig, MultiSigPayload, MultiSigRequest, Order, OrderRequest, PerpDeployAction,
+    SendAssetRequest, SignedMessageHex, Signers, UsdSendRequest, UserFillsResponse,
+    UserOpenOrdersResponse, UserOrderHistoryResponse,
 };
 
 #[async_trait]
@@ -879,6 +880,80 @@ impl HyperliquidClient {
             return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
         }
 
+        Ok(())
+    }
+
+    pub async fn multi_sig_l1_action(
+        &self,
+        action: Actions,
+        sig_chain_id: String,
+        other_signers: Vec<Signers>,
+        multi_sig_user: Address,
+    ) -> Result<()> {
+        debug!("sending multi sig l1 action {:?}", action.clone());
+
+        let nonce = self.nonce_manager.get_next_nonce();
+
+        let is_mainnet = self.network == Network::Mainnet;
+        let hash = generate_multi_sig_l1_hash(
+            &action,
+            multi_sig_user.to_string(),
+            self.user.to_string(),
+            is_mainnet,
+            nonce,
+        )?;
+
+        let leader_signature = self.signer.sign_order(hash).await?;
+        let mut signatures: Vec<SignedMessageHex> = vec![leader_signature.into()];
+
+        for other in other_signers {
+            let other_sig = other.sign_order(hash).await?;
+            signatures.push(other_sig.into());
+        }
+
+        let multi_sig_payload: MultiSigRequest = MultiSigRequest {
+            sig_chain_id,
+            signatures,
+            payload: MultiSigPayload {
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: self.user.to_string().to_lowercase(),
+                action: Box::new(action), // This returns IndexMap<String, Value>
+            },
+        };
+
+        let sig_hash = generate_multi_sig_hash(multi_sig_payload.clone(), self.network, nonce)?;
+        let leader_outer_signature = self.signer.sign_order(sig_hash).await?;
+
+        let payload = ExchangeRequest {
+            nonce,
+            signature: leader_outer_signature,
+            action: serde_json::to_value(Actions::MultiSig(multi_sig_payload))?,
+        };
+
+        debug!(
+            "transfer payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to transfer USD: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("transfer response: {:?}", out);
+        if out.status != *"ok" {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
         Ok(())
     }
 }
