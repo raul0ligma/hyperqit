@@ -45,7 +45,7 @@ mod test {
 
     #[test]
     fn test_all_exchange_responses() {
-        let test_cases = vec![
+        let test_cases = [
             r#"{
                "status":"ok",
                "response":{

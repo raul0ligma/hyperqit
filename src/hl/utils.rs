@@ -1,3 +1,5 @@
+use crate::errors::Result;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Network {
     Mainnet,
@@ -82,6 +84,17 @@ pub fn get_formatted_position_with_amount_raw(
     };
     let px = format_significant_digits_and_decimals(out_px, decimals);
     (px.to_string(), sz.to_string())
+}
+
+pub fn parse_chain_id(chain_id: &str) -> Result<u64> {
+    if chain_id.starts_with("0x") {
+        u64::from_str_radix(&chain_id[2..], 16)
+    } else if chain_id.chars().all(|c| c.is_ascii_hexdigit()) {
+        u64::from_str_radix(chain_id, 16)
+    } else {
+        chain_id.parse::<u64>()
+    }
+    .map_err(|e| anyhow::anyhow!("Invalid chain ID format: {}", e))
 }
 
 #[cfg(test)]

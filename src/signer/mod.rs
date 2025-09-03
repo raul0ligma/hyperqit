@@ -1,11 +1,10 @@
 use crate::{errors::Result, hl::SignedMessage};
 use alloy::{
-    primitives::FixedBytes,
+    primitives::{Address, FixedBytes},
     signers::{Signer, local::PrivateKeySigner},
     sol_types::Eip712Domain,
 };
 use anyhow::Ok;
-use qrcode::{QrCode, render::unicode};
 
 pub trait HyperLiquidSigningHash {
     fn hyperliquid_signing_hash(&self, domain: &Eip712Domain) -> FixedBytes<32>;
@@ -14,6 +13,8 @@ pub trait HyperLiquidSigningHash {
 pub enum Signers {
     Local(LocalWallet),
 }
+
+#[derive(Clone)]
 pub struct LocalWallet {
     wallet_key: PrivateKeySigner,
 }
@@ -24,18 +25,8 @@ impl LocalWallet {
             wallet_key: pk.parse().unwrap(),
         }
     }
-    pub fn print_wallet(&self) {
-        let code = QrCode::new(format!(
-            "https://blockscan.com/address/{}",
-            self.wallet_key.address()
-        ))
-        .unwrap();
-        let image = code
-            .render::<unicode::Dense1x2>()
-            .dark_color(unicode::Dense1x2::Light)
-            .light_color(unicode::Dense1x2::Dark)
-            .build();
-        println!("{image}");
+    pub fn address(&self) -> Address {
+        self.wallet_key.address()
     }
 
     pub async fn sign_hash(&self, hash: FixedBytes<32>) -> Result<alloy::signers::Signature> {
@@ -43,6 +34,7 @@ impl LocalWallet {
     }
 }
 
+#[async_trait::async_trait]
 impl crate::HlAgentWallet for Signers {
     async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage> {
         let signature = match self {
