@@ -13,6 +13,8 @@ pub trait HyperLiquidSigningHash {
 pub enum Signers {
     Local(LocalWallet),
 }
+
+#[derive(Clone)]
 pub struct LocalWallet {
     wallet_key: PrivateKeySigner,
 }
