@@ -26,7 +26,7 @@ async fn main() {
 
     let user_address: Address = config.sender_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
+    let executor = hyperqit::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
     executor
         .transfer_usd(10, false, "0x1".to_owned())

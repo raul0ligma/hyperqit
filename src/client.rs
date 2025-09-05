@@ -1,36 +1,20 @@
 use alloy::sol_types::SolStruct;
 use anyhow::Ok;
-use async_trait::async_trait;
 
 use std::time::SystemTime;
 use tracing::{debug, error, info};
 
 use alloy::primitives::{Address, FixedBytes};
 
-use crate::errors::{Errors, Result};
-use crate::hl::exchange::{
-    CONVERT_TO_MULTI_SIG_USER_MULTISIG_TYPE, CONVERT_TO_MULTI_SIG_USER_TYPE, ConvertToMultiSigUser,
-    ExchangeRequest, ExchangeResponse, MultiSigConvertToMultiSigUser, MultiSigSendAsset,
-    MultiSigUsdClassTransfer, MultiSigUsdSend, SEND_ASSET_MULTISIG_TYPE, SEND_ASSET_TYPE,
-    SendAsset, USD_CLASS_TRANSFER_MULTISIG_TYPE, USD_CLASS_TRANSFER_TYPE, USD_SEND_MULTISIG_TYPE,
-    UsdClassTransfer, generate_action_params, generate_multi_sig_hash, generate_multi_sig_l1_hash,
-    hyperliquid_signing_hash_with_default_domain,
-};
-use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
-use crate::hl::message::{SignedMessage, Signer};
-use crate::hl::nonce::NonceManager;
-use crate::hl::user_info::{
-    FundingHistory, GetUserFundingHistoryReq, GetUserInfoReq, UserPerpPosition, UserSpotPosition,
-};
-use crate::hl::utils::*;
-use crate::hl::{Actions, TransferRequest};
-use crate::{
-    BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
-    GetHistoricalOrders, GetUserFills, GetUserMultiSigConfig, GetUserOpenOrders,
-    HyperLiquidSigningHash, LocalWallet, MultiSigConfig, MultiSigPayload, MultiSigRequest, Order,
-    OrderRequest, PerpDeployAction, SendAssetRequest, SignedMessageHex, UsdSendRequest,
-    UserFillsResponse, UserMultiSigConfig, UserOpenOrdersResponse, UserOrderHistoryResponse,
-};
+use crate::errors::*;
+use crate::internal::*;
+use crate::market_info::*;
+use crate::order_responses::*;
+use crate::requests::*;
+use crate::signing::*;
+use crate::user_data::*;
+use crate::utils::*;
+use crate::wallet::*;
 
 pub struct HyperliquidClient {
     client: reqwest::Client,
@@ -444,7 +428,7 @@ impl HyperliquidClient {
                 limit_px: px.clone(),
                 sz: sz.clone(),
                 reduce_only,
-                order_type: Order::Limit(crate::Limit { tif: "Ioc".into() }),
+                order_type: OrderType::Limit(crate::Limit { tif: "Ioc".into() }),
                 cloid: None,
             }],
             grouping: "na".to_string(),

@@ -198,14 +198,14 @@ pub type UserOrderHistoryResponse = Vec<OrderWithStatus>;
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderWithStatus {
-    pub order: Order,
+    pub order: UserOrder,
     pub status: String,
     pub status_timestamp: i64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Order {
+pub struct UserOrder {
     pub coin: String,
     pub side: String,
     pub limit_px: String,

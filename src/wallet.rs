@@ -1,6 +1,6 @@
 use crate::{
     errors::Result,
-    hl::{SignedMessage, Signer as WalletSigner},
+    signing::{SignedMessage, Signer as WalletSigner},
 };
 use alloy::{
     primitives::{Address, FixedBytes},
