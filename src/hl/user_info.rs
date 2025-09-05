@@ -223,3 +223,17 @@ pub struct Order {
     pub tif: String,
     pub cloid: Option<String>,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserMultiSigConfig {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserMultiSigConfig {
+    pub authorized_users: Vec<String>,
+    pub threshold: u64,
+}

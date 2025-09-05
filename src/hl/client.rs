@@ -26,10 +26,10 @@ use crate::hl::utils::*;
 use crate::hl::{Actions, TransferRequest};
 use crate::{
     BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
-    GetHistoricalOrders, GetUserFills, GetUserOpenOrders, HyperLiquidSigningHash, LocalWallet,
-    MultiSigConfig, MultiSigPayload, MultiSigRequest, Order, OrderRequest, PerpDeployAction,
-    SendAssetRequest, SignedMessageHex, Signers, UsdSendRequest, UserFillsResponse,
-    UserOpenOrdersResponse, UserOrderHistoryResponse,
+    GetHistoricalOrders, GetUserFills, GetUserMultiSigConfig, GetUserOpenOrders,
+    HyperLiquidSigningHash, LocalWallet, MultiSigConfig, MultiSigPayload, MultiSigRequest, Order,
+    OrderRequest, PerpDeployAction, SendAssetRequest, SignedMessageHex, Signers, UsdSendRequest,
+    UserFillsResponse, UserMultiSigConfig, UserOpenOrdersResponse, UserOrderHistoryResponse,
 };
 
 #[async_trait]
@@ -336,6 +336,38 @@ impl HyperliquidClient {
         debug!("leverage update response: {:?}", out);
 
         Ok(())
+    }
+
+    pub async fn get_user_multi_sig_config(
+        &self,
+        user: Address,
+    ) -> Result<Option<UserMultiSigConfig>> {
+        debug!("fetching multi sig config for user {}", self.user);
+
+        let req = GetUserMultiSigConfig {
+            request_type: "userToMultiSigSigners".into(),
+            user: user.to_string(),
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!(
+                "failed to get user multi sig config: {} - {}",
+                status_code, body
+            );
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
     }
 
     pub async fn create_position_with_size_in_usd(
@@ -708,7 +740,7 @@ impl HyperliquidClient {
         let sig_chain_id_u64 = parse_chain_id(&sig_chain_id)?;
         let config_str = serde_json::to_string(&MultiSigConfig {
             authorized_users: signers.iter().map(|s| s.to_string()).collect(),
-            threshold,
+            threshold: threshold,
         })?;
 
         let convert_action: ConvertToMultiSigUserRequest = ConvertToMultiSigUserRequest {
@@ -964,27 +996,29 @@ impl HyperliquidClient {
     /// Multi-sig convert to multi-sig user
     pub async fn multi_sig_convert_to_multisig_user(
         &self,
-        signers: Vec<Address>,
+        signers: Option<Vec<Address>>,
         threshold: u64,
         sig_chain_id: String,
         other_signers: Vec<Signers>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!(
-            "multi-sig convert to multisig user: {} signers, threshold {}",
-            signers.len(),
-            threshold
+            "multi-sig convert to multisig user: {:?} signers, threshold {:?}",
+            signers, threshold
         );
 
-        let mut sorted_signers = signers;
-        sorted_signers.sort();
-
         let nonce = self.nonce_manager.get_next_nonce();
-
-        let config_str = serde_json::to_string(&MultiSigConfig {
-            authorized_users: sorted_signers.iter().map(|s| s.to_string()).collect(),
-            threshold,
-        })?;
+        let config_str = match signers {
+            Some(signers) => {
+                let mut sorted_signers = signers;
+                sorted_signers.sort();
+                serde_json::to_string(&MultiSigConfig {
+                    authorized_users: sorted_signers.iter().map(|s| s.to_string()).collect(),
+                    threshold,
+                })?
+            }
+            None => "null".to_owned(),
+        };
 
         let convert_req = ConvertToMultiSigUserRequest {
             sig_chain_id: sig_chain_id.clone(),
