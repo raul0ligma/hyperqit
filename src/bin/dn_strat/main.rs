@@ -31,11 +31,11 @@ async fn main() {
         )
         .init();
     let config = Config::init_from_env().unwrap();
-    let signer = Signers::Local(hyperqit::LocalWallet::signer(config.private_key));
+    let signer = hyperqit::LocalWallet::signer(config.private_key);
 
     let user_address: Address = config.user_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
+    let executor = crate::HyperliquidClient::new(Network::Testnet, Box::new(signer), user_address);
     let asset = Asset::CommonAsset("HYPE".to_owned());
     let notifier = NotifierService::new(config.bot_url, user_address.to_string());
     let strategy = Arc::new(Strategy::new(

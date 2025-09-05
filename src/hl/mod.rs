@@ -9,7 +9,7 @@ mod user_info;
 mod utils;
 
 pub use actions::*;
-pub use client::{HlAgentWallet, HyperliquidClient};
+pub use client::HyperliquidClient;
 pub use info::*;
 pub use message::*;
 pub use response::*;

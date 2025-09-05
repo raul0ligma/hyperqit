@@ -38,7 +38,7 @@ async fn main() {
         )
         .init();
     let config = Config::init_from_env().unwrap();
-    let signer = Signers::Local(hyperqit::LocalWallet::signer(config.private_key));
+    let signer = Box::new(hyperqit::LocalWallet::signer(config.private_key));
 
     let user_address: Address = config.user_address.parse().unwrap();
 

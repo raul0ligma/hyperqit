@@ -1,4 +1,7 @@
-use crate::{errors::Result, hl::SignedMessage};
+use crate::{
+    errors::Result,
+    hl::{SignedMessage, Signer as WalletSigner},
+};
 use alloy::{
     primitives::{Address, FixedBytes},
     signers::{Signer, local::PrivateKeySigner},
@@ -8,10 +11,6 @@ use anyhow::Ok;
 
 pub trait HyperLiquidSigningHash {
     fn hyperliquid_signing_hash(&self, domain: &Eip712Domain) -> FixedBytes<32>;
-}
-
-pub enum Signers {
-    Local(LocalWallet),
 }
 
 #[derive(Clone)]
@@ -35,12 +34,9 @@ impl LocalWallet {
 }
 
 #[async_trait::async_trait]
-impl crate::HlAgentWallet for Signers {
+impl WalletSigner for LocalWallet {
     async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage> {
-        let signature = match self {
-            Signers::Local(wallet) => wallet.sign_hash(to_sign),
-        }
-        .await?;
+        let signature = self.sign_hash(to_sign).await?;
         Ok(SignedMessage {
             r: signature.r(),
             s: signature.s(),

@@ -33,13 +33,13 @@ async fn main() {
         .init();
     let config = Config::init_from_env().unwrap();
 
-    let user_a = hyperqit::LocalWallet::signer(config.private_key_a);
-    let user_b = hyperqit::LocalWallet::signer(config.private_key_b);
+    let user_a = Box::new(hyperqit::LocalWallet::signer(config.private_key_a));
+    let user_b = Box::new(hyperqit::LocalWallet::signer(config.private_key_b));
 
     let user_a_addr = user_a.address();
     let user_b_addr = user_b.address();
 
-    let signer: Signers = Signers::Local(hyperqit::LocalWallet::signer(config.private_key_owner));
+    let signer = Box::new(hyperqit::LocalWallet::signer(config.private_key_owner));
 
     let multi_sig_user = Address::from_str(&config.multi_sig).unwrap();
 
@@ -54,18 +54,14 @@ async fn main() {
         .await
         .unwrap();
     info!("config {:?}", multi_sig_config);
-    let executor = crate::HyperliquidClient::new(
-        Network::Testnet,
-        hyperqit::Signers::Local(user_b),
-        user_b_addr,
-    );
 
+    let executor = crate::HyperliquidClient::new(Network::Testnet, user_b, user_b_addr);
     executor
         .multi_sig_convert_to_multisig_user(
             None,
             0,
             "0x66eee".to_string(),
-            vec![hyperqit::Signers::Local(user_a.clone())],
+            vec![user_a.clone()],
             multi_sig_user,
         )
         .await
@@ -76,7 +72,7 @@ async fn main() {
             1,
             false,
             "0x66eee".to_string(),
-            vec![hyperqit::Signers::Local(user_a.clone())],
+            vec![user_a.clone()],
             multi_sig_user,
         )
         .await
@@ -91,7 +87,7 @@ async fn main() {
             "2.0".to_string(),
             None,
             "0x66eee".to_string(),
-            vec![hyperqit::Signers::Local(user_a.clone())],
+            vec![user_a.clone()],
             multi_sig_user,
         )
         .await
@@ -102,7 +98,7 @@ async fn main() {
             user_a_addr,
             "2.0".to_string(),
             "0x66eee".to_string(),
-            vec![hyperqit::Signers::Local(user_a.clone())],
+            vec![user_a.clone()],
             multi_sig_user,
         )
         .await
@@ -116,7 +112,7 @@ async fn main() {
                 mark_pxs: vec![],
             })),
             "0x66eee".to_string(),
-            vec![hyperqit::Signers::Local(user_a.clone())],
+            vec![user_a.clone()],
             multi_sig_user,
         )
         .await

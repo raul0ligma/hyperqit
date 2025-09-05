@@ -17,7 +17,7 @@ use crate::hl::exchange::{
     hyperliquid_signing_hash_with_default_domain,
 };
 use crate::hl::info::{GetInfoReq, PerpetualsInfo, SpotResponse};
-use crate::hl::message::SignedMessage;
+use crate::hl::message::{SignedMessage, Signer};
 use crate::hl::nonce::NonceManager;
 use crate::hl::user_info::{
     FundingHistory, GetUserFundingHistoryReq, GetUserInfoReq, UserPerpPosition, UserSpotPosition,
@@ -28,25 +28,20 @@ use crate::{
     BulkCancel, BulkOrder, CancelOrder, ConvertToMultiSigUserRequest, ExchangeOrderResponse,
     GetHistoricalOrders, GetUserFills, GetUserMultiSigConfig, GetUserOpenOrders,
     HyperLiquidSigningHash, LocalWallet, MultiSigConfig, MultiSigPayload, MultiSigRequest, Order,
-    OrderRequest, PerpDeployAction, SendAssetRequest, SignedMessageHex, Signers, UsdSendRequest,
+    OrderRequest, PerpDeployAction, SendAssetRequest, SignedMessageHex, UsdSendRequest,
     UserFillsResponse, UserMultiSigConfig, UserOpenOrdersResponse, UserOrderHistoryResponse,
 };
 
-#[async_trait]
-pub trait HlAgentWallet {
-    async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage>;
-}
-
 pub struct HyperliquidClient {
     client: reqwest::Client,
-    signer: Signers,
+    signer: Box<dyn Signer + Send + Sync>,
     network: Network,
     user: Address,
     nonce_manager: NonceManager,
 }
 
 impl HyperliquidClient {
-    pub fn new(network: Network, signer: Signers, user: Address) -> Self {
+    pub fn new(network: Network, signer: Box<dyn Signer + Send + Sync>, user: Address) -> Self {
         debug!("creating hyperliquid client for {} on {:?}", user, network);
         HyperliquidClient {
             client: reqwest::Client::new(),
@@ -798,7 +793,7 @@ impl HyperliquidClient {
         multisig_payload: T,
         sig_type: String,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         let sig_chain_id_u64 = parse_chain_id(&sig_chain_id)?;
@@ -850,7 +845,7 @@ impl HyperliquidClient {
         amount: u64,
         to_perp: bool,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!(
@@ -901,7 +896,7 @@ impl HyperliquidClient {
         amount: String,
         from_sub_account: Option<String>,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!(
@@ -954,7 +949,7 @@ impl HyperliquidClient {
         destination: Address,
         amount: String,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!(
@@ -999,7 +994,7 @@ impl HyperliquidClient {
         signers: Option<Vec<Address>>,
         threshold: u64,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!(
@@ -1083,7 +1078,7 @@ impl HyperliquidClient {
         &self,
         action: Actions,
         sig_chain_id: String,
-        other_signers: Vec<Signers>,
+        other_signers: Vec<Box<dyn Signer + Send + Sync>>,
         multi_sig_user: Address,
     ) -> Result<()> {
         debug!("sending multi sig l1 action {:?}", action.clone());
