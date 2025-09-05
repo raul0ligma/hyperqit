@@ -1,6 +1,6 @@
 [package]
 name = "hyperqit"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 description = "rust sdk for interacting with hyperliquid"
 license = "MIT" 
