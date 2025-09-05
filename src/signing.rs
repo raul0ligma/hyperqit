@@ -1,5 +1,12 @@
-use alloy::primitives::U256;
+use crate::errors::Result;
+use alloy::primitives::{FixedBytes, U256};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+
+#[async_trait]
+pub trait Signer {
+    async fn sign_order(&self, to_sign: FixedBytes<32>) -> Result<SignedMessage>;
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SignedMessage {

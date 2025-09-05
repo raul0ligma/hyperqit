@@ -198,14 +198,14 @@ pub type UserOrderHistoryResponse = Vec<OrderWithStatus>;
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderWithStatus {
-    pub order: Order,
+    pub order: UserOrder,
     pub status: String,
     pub status_timestamp: i64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Order {
+pub struct UserOrder {
     pub coin: String,
     pub side: String,
     pub limit_px: String,
@@ -222,4 +222,18 @@ pub struct Order {
     pub orig_sz: String,
     pub tif: String,
     pub cloid: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetUserMultiSigConfig {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserMultiSigConfig {
+    pub authorized_users: Vec<String>,
+    pub threshold: u64,
 }

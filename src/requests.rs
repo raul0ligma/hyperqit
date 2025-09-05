@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{SignedMessage, SignedMessageHex};
+use crate::SignedMessageHex;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -16,7 +16,7 @@ pub struct OrderRequest {
     #[serde(rename = "r", alias = "reduceOnly", default)]
     pub reduce_only: bool,
     #[serde(rename = "t", alias = "orderType")]
-    pub order_type: Order,
+    pub order_type: OrderType,
     #[serde(rename = "c", alias = "cloid", skip_serializing_if = "Option::is_none")]
     pub cloid: Option<String>,
 }
@@ -28,7 +28,7 @@ pub struct Limit {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum Order {
+pub enum OrderType {
     Limit(Limit),
 }
 
@@ -121,7 +121,6 @@ pub struct RegisterAsset {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-
 pub enum PerpDeployAction {
     RegisterAsset(RegisterAsset),
     SetFundingMultiplier(SetFundingMultipliers),

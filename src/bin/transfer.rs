@@ -22,11 +22,11 @@ async fn main() {
         .init();
     let config = Config::init_from_env().unwrap();
 
-    let signer: Signers = Signers::Local(hyperqit::LocalWallet::signer(config.private_key_sender));
+    let signer = Box::new(hyperqit::LocalWallet::signer(config.private_key_sender));
 
     let user_address: Address = config.sender_address.parse().unwrap();
 
-    let executor = crate::HyperliquidClient::new(Network::Testnet, signer, user_address);
+    let executor = hyperqit::HyperliquidClient::new(Network::Testnet, signer, user_address);
 
     executor
         .transfer_usd(10, false, "0x1".to_owned())

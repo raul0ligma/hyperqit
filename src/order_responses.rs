@@ -39,7 +39,7 @@ pub enum ExchangeOrderResponse {
 
 #[cfg(test)]
 mod test {
-    use crate::hl::exchange::ExchangeResponse;
+    use crate::internal::ExchangeResponse;
 
     use super::*;
 

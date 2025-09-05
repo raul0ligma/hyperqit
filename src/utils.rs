@@ -87,8 +87,8 @@ pub fn get_formatted_position_with_amount_raw(
 }
 
 pub fn parse_chain_id(chain_id: &str) -> Result<u64> {
-    if chain_id.starts_with("0x") {
-        u64::from_str_radix(&chain_id[2..], 16)
+    if let Some(stripped) = chain_id.strip_prefix("0x") {
+        u64::from_str_radix(stripped, 16)
     } else if chain_id.chars().all(|c| c.is_ascii_hexdigit()) {
         u64::from_str_radix(chain_id, 16)
     } else {
