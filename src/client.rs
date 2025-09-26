@@ -661,7 +661,10 @@ impl HyperliquidClient {
         Ok(serde_json::from_value(out.response)?)
     }
 
-    pub async fn perp_deploy_action(&self, deploy_params: PerpDeployAction) -> Result<()> {
+    pub async fn perp_deploy_action(
+        &self,
+        deploy_params: PerpDeployAction,
+    ) -> Result<SetGlobalResponse> {
         debug!("creating perp deploy action {:?}", deploy_params.clone());
 
         let nonce = self.nonce_manager.get_next_nonce();
@@ -704,7 +707,7 @@ impl HyperliquidClient {
         let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
         debug!("perp deploy action response: {:?}", out);
 
-        Ok(())
+        Ok(serde_json::from_value(out.response)?)
     }
 
     pub async fn convert_to_multi_sig(

@@ -115,7 +115,6 @@ pub struct RegisterAsset {
     pub max_gas: Option<u64>,
     pub asset_request: RegisterAssetRequest,
     pub dex: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub schema: Option<PerpDexSchemaInput>,
 }
 
@@ -134,6 +133,7 @@ pub struct SetOracle {
     pub dex: String,
     pub oracle_pxs: Vec<[String; 2]>,
     pub mark_pxs: Vec<Vec<[String; 2]>>,
+    pub external_perp_pxs: Vec<[String; 2]>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

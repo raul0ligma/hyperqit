@@ -30,11 +30,18 @@ pub struct OrderStatusResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetGlobalResponse {
+    pub data: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "data")]
 pub enum ExchangeOrderResponse {
     Order(OrderStatusResponse),
     Default,
     Cancel(OrderStatusResponse),
+    SetGlobal(SetGlobalResponse),
 }
 
 #[cfg(test)]
