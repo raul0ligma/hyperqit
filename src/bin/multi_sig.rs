@@ -110,7 +110,89 @@ async fn main() {
                 dex: "dex".to_string(),
                 oracle_pxs: vec![["dex:COIN".to_string(), "69.69".to_string()]],
                 mark_pxs: vec![],
+                external_perp_pxs: vec![],
             })),
+            "0x66eee".to_string(),
+            vec![user_a.clone()],
+            multi_sig_user,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::SetFundingMultipliers(vec![[
+                "dex:COIN".to_string(),
+                "0".to_string(),
+            ]])),
+            "0x66eee".to_string(),
+            vec![user_a.clone()],
+            multi_sig_user,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::HaltTrading(HaltTrading {
+                coin: "dex:BET".to_string(),
+                is_halted: false,
+            })),
+            "0x66eee".to_string(),
+            vec![user_a.clone()],
+            multi_sig_user,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::SetOpenInterestCaps(vec![(
+                "dex:COIN".to_string(),
+                10000000000000,
+            )])),
+            "0x66eee".to_string(),
+            vec![user_a.clone()],
+            multi_sig_user,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::InsertMarginTable(InsertMarginTable {
+                dex: "dex".to_string(),
+                margin_table: RawMarginTable {
+                    description: "insert margin table".to_string(),
+                    margin_tiers: vec![
+                        RawMarginTier {
+                            lower_bound: 0,
+                            max_leverage: 50,
+                        },
+                        RawMarginTier {
+                            lower_bound: 500,
+                            max_leverage: 20,
+                        },
+                        RawMarginTier {
+                            lower_bound: 2500,
+                            max_leverage: 10,
+                        },
+                    ],
+                },
+            })),
+            "0x66eee".to_string(),
+            vec![user_a.clone()],
+            multi_sig_user,
+        )
+        .await
+        .unwrap();
+
+    executor
+        .multi_sig_l1_action(
+            Actions::PerpDeploy(PerpDeployAction::SetMarginTableIds(vec![(
+                "dex:COIN".to_string(),
+                1,
+            )])),
             "0x66eee".to_string(),
             vec![user_a.clone()],
             multi_sig_user,

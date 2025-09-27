@@ -169,7 +169,7 @@ The `deployer` binary demonstrates HIP-3 perpetual deployment using the SDK:
 let deploy_action = PerpDeployAction::RegisterAsset(RegisterAsset {
     max_gas: Some(1000000),
     asset_request: RegisterAssetRequest {
-        coin: "NEWCOIN".to_string(),
+        coin: "dex:NEWCOIN".to_string(),
         sz_decimals: 6,
         oracle_px: "100.0".to_string(),
         margin_table_id: 0,

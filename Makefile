@@ -17,6 +17,12 @@ run-multisig:
 run-transfer:
 	cargo run --bin transfer
 
+run-example-perp-actions:
+	cargo run --example perp_deploy_actions
+
+run-example-perp-deploy:
+	cargo run --example perp_updater
+
 debug:
 	cargo build
 

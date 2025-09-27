@@ -122,9 +122,12 @@ pub struct RegisterAsset {
 #[serde(rename_all = "camelCase")]
 pub enum PerpDeployAction {
     RegisterAsset(RegisterAsset),
-    SetFundingMultiplier(SetFundingMultipliers),
+    SetFundingMultipliers(Vec<[String; 2]>),
     SetOracle(SetOracle),
     HaltTrading(HaltTrading),
+    SetMarginTableIds(Vec<(String, u64)>),
+    InsertMarginTable(InsertMarginTable),
+    SetOpenInterestCaps(Vec<(String, u64)>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -143,7 +146,26 @@ pub struct HaltTrading {
     pub is_halted: bool,
 }
 
-pub type SetFundingMultipliers = Vec<[String; 2]>;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InsertMarginTable {
+    pub dex: String,
+    pub margin_table: RawMarginTable,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawMarginTable {
+    pub description: String,
+    pub margin_tiers: Vec<RawMarginTier>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawMarginTier {
+    pub lower_bound: u64,
+    pub max_leverage: u64,
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SendAssetRequest {
