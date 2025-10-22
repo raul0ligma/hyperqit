@@ -59,6 +59,19 @@ pub enum Actions {
     SendAsset(SendAssetRequest),
     ConvertToMultiSigUser(ConvertToMultiSigUserRequest),
     MultiSig(MultiSigRequest),
+    UserDexAbstraction(UpdateDexAbstraction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDexAbstraction {
+    #[serde(rename = "signatureChainId")]
+    pub sig_chain_id: String,
+    #[serde(rename = "hyperliquidChain")]
+    pub chain: String,
+    pub user: String,
+    pub enabled: bool,
+    pub nonce: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

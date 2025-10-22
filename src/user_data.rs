@@ -134,6 +134,13 @@ pub struct GetUserFundingHistoryReq {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct GetUserDexAbstraction {
+    #[serde(rename = "type")]
+    pub request_type: String,
+    pub user: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct GetUserOpenOrders {
     #[serde(rename = "type")]
     pub request_type: String,

@@ -14,6 +14,9 @@ run-dex:
 run-multisig:
 	cargo run --bin multisig
 
+run-abst:
+	cargo run --bin abst
+
 run-transfer:
 	cargo run --bin transfer
 

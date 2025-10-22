@@ -36,6 +36,30 @@ impl HyperliquidClient {
         }
     }
 
+    pub async fn get_dex_abstraction(&self) -> Result<Option<bool>> {
+        let req = GetUserDexAbstraction {
+            request_type: "userDexAbstraction".into(),
+            user: self.user.to_string(),
+        };
+
+        let resp = self
+            .client
+            .post(format!("{}/info", Into::<String>::into(self.network)))
+            .header("Content-Type", "application/json")
+            .json(&req)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to get funding history: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        Ok(serde_json::from_str(body.as_str())?)
+    }
+
     pub async fn get_user_funding_history(&self, since: u128) -> Result<FundingHistory> {
         debug!(
             "fetching funding history for user {} since {}",
@@ -263,6 +287,67 @@ impl HyperliquidClient {
         }
 
         Ok(serde_json::from_str(body.as_str())?)
+    }
+
+    pub async fn update_dex_abstraction(&self, sig_chain_id: String, enabled: bool) -> Result<()> {
+        let nonce = self.nonce_manager.get_next_nonce();
+
+        let action: Actions = Actions::UserDexAbstraction(crate::UpdateDexAbstraction {
+            sig_chain_id: sig_chain_id.clone(),
+            chain: self.network.name(),
+            user: self.user.to_string(),
+            enabled,
+            nonce: nonce,
+        });
+
+        let sig_chain_id_u64 = parse_chain_id(sig_chain_id.as_str())?;
+
+        let hash: FixedBytes<32> = hyperliquid_signing_hash_with_default_domain(
+            USER_DEX_ABSTRACTION_TYPE.to_owned(),
+            UserDexAbstraction {
+                hyperliquidChain: self.network.name(),
+                user: self.user,
+                enabled,
+                nonce: nonce,
+            },
+            sig_chain_id_u64,
+        );
+
+        debug!("update abstraction hash: {:?}", hash);
+        let signature = self.signer.sign_order(hash).await?;
+
+        let payload = ExchangeRequest {
+            nonce,
+            signature,
+            action: serde_json::to_value(action)?,
+        };
+
+        debug!(
+            "update abstraction payload: {}",
+            serde_json::to_string(&payload).unwrap()
+        );
+
+        let resp = self
+            .client
+            .post(format!("{}/exchange", Into::<String>::into(self.network)))
+            .json(&payload)
+            .send()
+            .await?;
+
+        let status_code = resp.status().as_u16();
+        let body = resp.text().await?;
+        if status_code != 200 {
+            error!("failed to send asset: {} - {}", status_code, body);
+            return Err(Errors::HyperLiquidApiError(status_code, body).into());
+        }
+
+        let out: ExchangeResponse = serde_json::from_str(body.as_str())?;
+        debug!("update abstraction response: {:?}", out);
+        if out.status != *"ok" {
+            return Err(Errors::HyperLiquidApiError(100, out.response.to_string()).into());
+        }
+
+        Ok(())
     }
 
     pub async fn update_leverage(&self, a: u32, is_cross: bool, leverage: u32) -> Result<()> {

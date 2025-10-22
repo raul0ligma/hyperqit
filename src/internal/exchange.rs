@@ -52,6 +52,16 @@ sol! {
         nonce: uint64
     }
 }
+sol! {
+    #[multisig]
+    #[derive(Serialize)]
+    struct UserDexAbstraction {
+        hyperliquidChain: string,
+        user: address,
+        enabled: bool,
+        nonce: uint64
+    }
+}
 
 sol! {
     #[multisig]

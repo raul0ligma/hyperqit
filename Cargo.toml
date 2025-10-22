@@ -30,6 +30,10 @@ path = "src/bin/multi_sig.rs"
 name = "transfer"
 path = "src/bin/transfer.rs"
 
+[[abst]]
+name = "abstraction"
+path = "src/bin/abst.rs"
+
 [dependencies]
 alloy = "1.0.9"
 anyhow = "1.0.98"
