@@ -13,7 +13,7 @@ mod wallet;
 pub use client::HyperliquidClient;
 pub use errors::{CmpError, Errors, Result};
 pub use market_info::{
-    PerpMarketInfo, SpotMarketInfo, create_unified_market_info, find_market_by_name,
+    PerpMarketInfo, SpotMarketInfo, Token, create_unified_market_info, find_market_by_name,
 };
 pub use order_responses::*;
 pub use requests::*;

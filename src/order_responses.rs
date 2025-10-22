@@ -42,6 +42,7 @@ pub enum ExchangeOrderResponse {
     Default,
     Cancel(OrderStatusResponse),
     SetGlobal(SetGlobalResponse),
+    String(String),
 }
 
 #[cfg(test)]
