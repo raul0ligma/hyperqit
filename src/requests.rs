@@ -141,6 +141,7 @@ pub enum PerpDeployAction {
     SetMarginTableIds(Vec<(String, u64)>),
     InsertMarginTable(InsertMarginTable),
     SetOpenInterestCaps(Vec<(String, u64)>),
+    SetSubDeployers(SetSubDeployer),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -150,6 +151,21 @@ pub struct SetOracle {
     pub oracle_pxs: Vec<[String; 2]>,
     pub mark_pxs: Vec<Vec<[String; 2]>>,
     pub external_perp_pxs: Vec<[String; 2]>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetSubDeployer {
+    pub dex: String,
+    pub sub_deployers: Vec<SubDeployerInput>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SubDeployerInput {
+    pub variant: String,
+    pub user: String,
+    pub allowed: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
